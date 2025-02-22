@@ -15,6 +15,11 @@ import uuid
 import threading
 from flask import Response
 from flask_socketio import SocketIO, emit
+import speech_recognition as sr
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from flask_cors import CORS
 
 # Load environment variables
 load_dotenv()
@@ -40,7 +45,23 @@ login_manager.login_view = 'login'
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 
 # Initialize SocketIO with gevent
-socketio = SocketIO(app, async_mode='gevent')
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://127.0.0.1:5002"],
+        "methods": ["GET", "POST"],
+        "allow_headers": ["Content-Type"]
+    }
+})
+
+socketio = SocketIO(app, 
+    cors_allowed_origins=["http://127.0.0.1:5002"],
+    async_mode='gevent',
+    transport=['websocket']
+)
+
+# Download required NLTK data
+nltk.download('punkt')
+nltk.download('stopwords')
 
 class User(UserMixin):
     def __init__(self, user_data):
@@ -150,13 +171,37 @@ def dashboard():
                          my_interviews=my_interviews,
                          available_interviews=available_interviews)
 
-@app.route('/schedule-interview', methods=['GET', 'POST'])
+@app.route('/schedule_interview', methods=['GET', 'POST'])
 @login_required
 def schedule_interview():
     if request.method == 'POST':
         role = request.form.get('role')
+        interview_key = request.form.get('interview_key')
         
-        if role == 'interviewer':
+        if role == 'interviewee' and interview_key:
+            # Join existing interview as interviewee
+            interview = mongo.db.interviews.find_one_and_update(
+                {
+                    'interview_key': interview_key,
+                    'interviewee_id': None,
+                    'status': 'waiting_for_interviewee'
+                },
+                {
+                    '$set': {
+                        'interviewee_id': current_user.id,
+                        'interviewee_name': current_user.name,
+                        'status': 'scheduled'
+                    }
+                }
+            )
+            
+            if interview:
+                return redirect(url_for('interview_room', interview_id=interview['_id']))
+            else:
+                flash('Invalid interview key or interview is no longer available')
+                return redirect(url_for('dashboard'))
+        
+        elif role == 'interviewer':
             # Get interviewer form data
             title = request.form.get('title')
             description = request.form.get('description')
@@ -187,73 +232,34 @@ def schedule_interview():
             mongo.db.interviews.insert_one(interview_data)
             flash(f'Interview created successfully. Key: {interview_key}')
             
-        elif role == 'interviewee':
-            interview_key = request.form.get('interview_key')
-            
-            # Find the interview first
-            interview = mongo.db.interviews.find_one({
-                'interview_key': interview_key,
-                'status': 'waiting_for_interviewee'
-            })
-            
-            if not interview:
-                flash('Interview not found or already has an interviewee')
-                return redirect(url_for('dashboard'))
-            
-            # For testing: Allow joining your own interview
-            if interview['interviewer_id'] == current_user.id:
-                # Create a temporary test user
-                test_user_data = {
-                    '_id': ObjectId(),
-                    'name': f"Test Interviewee ({current_user.name})",
-                    'email': f"test_{current_user.id}@test.com",
-                    'is_test_user': True
-                }
-                interviewee_id = test_user_data['_id']
-                interviewee_name = test_user_data['name']
-            else:
-                interviewee_id = current_user.id
-                interviewee_name = current_user.name
-            
-            # Update the interview
-            mongo.db.interviews.update_one(
-                {'interview_key': interview_key},
-                {
-                    '$set': {
-                        'interviewee_id': interviewee_id,
-                        'interviewee_name': interviewee_name,
-                        'status': 'scheduled'
-                    }
-                }
-            )
-            flash('Successfully joined the interview!')
-            
         return redirect(url_for('dashboard'))
     
     return render_template('pages/schedule_interview.html')
 
-@app.route('/interview-room/<interview_id>', methods=['GET', 'POST'])
+@app.route('/interview-room/<interview_id>')
 @login_required
 def interview_room(interview_id):
-    try:
-        interview = mongo.db.interviews.find_one({'_id': ObjectId(interview_id)})
-        if not interview:
-            flash('Interview not found')
-            return redirect(url_for('dashboard'))
-        
-        is_interviewer = current_user.id == interview['interviewer_id']
-        messages = list(mongo.db.messages.find({'interview_id': interview_id}).sort('created_at', 1))
-        
-        return render_template('pages/interview_room.html', 
-                             interview=interview,
-                             messages=messages,
-                             is_interviewer=is_interviewer,
-                             user_name=current_user.name,
-                             user_id=current_user.id)
-    
-    except Exception as e:
-        flash('Invalid interview ID')
+    interview = mongo.db.interviews.find_one({'_id': ObjectId(interview_id)})
+    if not interview:
+        flash('Interview not found')
         return redirect(url_for('dashboard'))
+    
+    # Explicitly check if current user is interviewer or interviewee
+    is_interviewer = str(interview.get('interviewer_id', '')) == str(current_user.id)
+    is_interviewee = str(interview.get('interviewee_id', '')) == str(current_user.id)
+    
+    if not (is_interviewer or is_interviewee):
+        flash('You are not authorized to join this interview')
+        return redirect(url_for('dashboard'))
+    
+    messages = list(mongo.db.messages.find({'interview_id': interview_id}))
+    
+    return render_template('pages/interview_room.html',
+                         interview=interview,
+                         messages=messages,
+                         is_interviewer=is_interviewer,
+                         user_name=current_user.name,
+                         user_id=current_user.id)
 
 @app.route('/check-email', methods=['POST'])
 def check_email():
@@ -489,54 +495,26 @@ def get_interview_questions(role, level='intermediate'):
 # Add socket event for getting next question
 @socketio.on('get_next_question')
 def handle_next_question(data):
-    interview_id = data.get('interview_id')
-    current_question = data.get('current_question', 0)
-    role = data.get('role', 'general')
-    
     try:
-        # Get conversation context
-        messages = list(mongo.db.messages.find({
-            'interview_id': interview_id
-        }).sort('created_at', -1).limit(5))  # Get last 5 messages for context
+        room_id = data['roomId']
+        context = data.get('currentContext', '')
         
-        context = " ".join([m['content'] for m in messages])
+        # Load questions
+        with open('frontend/assets/questions.json', 'r') as f:
+            questions_data = json.load(f)
         
-        prompt = f"""
-        Based on this interview context: "{context}"
-        Previous question number: {current_question}
-        Role: {role}
+        # Get random question (you can implement more sophisticated selection)
+        import random
+        role = random.choice(questions_data['job_roles'])
+        question = random.choice(role['questions'])
         
-        Generate a relevant technical interview question that:
-        1. Follows up on previous discussion if relevant
-        2. Is appropriate for the {role} role
-        3. Gradually increases in difficulty
-        4. Tests both theoretical and practical knowledge
-        
-        Format response as JSON:
-        {{
-            "question": "your question here",
-            "expected_topics": ["topic1", "topic2"],
-            "difficulty_level": "beginner/intermediate/advanced"
-        }}
-        """
-        
-        ai_response = get_ai_assistance(prompt)
-        try:
-            question_data = json.loads(ai_response)
-        except:
-            # Fallback to predefined questions if AI response isn't valid
-            questions = get_interview_questions(role)
-            question_data = {
-                "question": questions[current_question % len(questions)],
-                "expected_topics": [role],
-                "difficulty_level": "intermediate"
-            }
-        
-        emit('next_question', question_data)
+        emit('ai_question', {
+            'question': question,
+            'topics': ['technical', 'interview']  # You can enhance this
+        }, room=room_id)
         
     except Exception as e:
         print(f"Error generating next question: {e}")
-        emit('error', {'message': str(e)})
 
 # Add this function to check if interview is expired
 def is_interview_expired(interview):
@@ -550,25 +528,106 @@ def is_interview_expired(interview):
 @login_required
 def delete_interview(interview_id):
     try:
-        # Find interview and verify ownership
-        interview = mongo.db.interviews.find_one({
+        # Only allow interviewer to delete
+        interview = mongo.db.interviews.find_one_and_delete({
             '_id': ObjectId(interview_id),
             'interviewer_id': current_user.id
         })
         
-        if not interview:
-            flash('Interview not found or you do not have permission to delete it')
-            return redirect(url_for('dashboard'))
-        
-        # Delete the interview and its messages
-        mongo.db.interviews.delete_one({'_id': ObjectId(interview_id)})
-        mongo.db.messages.delete_many({'interview_id': interview_id})
-        
-        flash('Interview deleted successfully')
+        if interview:
+            # Delete associated messages
+            mongo.db.messages.delete_many({'interview_id': interview_id})
+            flash('Interview deleted successfully')
+        else:
+            flash('Interview not found or unauthorized')
+            
     except Exception as e:
         flash('Error deleting interview')
-    
+        
     return redirect(url_for('dashboard'))
 
+# Add these socket events
+@socketio.on('voice_transcript')
+def handle_voice_transcript(data):
+    try:
+        transcript = data['transcript']
+        room_id = data['roomId']
+        
+        # Analyze transcript
+        tokens = word_tokenize(transcript.lower())
+        stop_words = set(stopwords.words('english'))
+        keywords = [word for word in tokens if word not in stop_words]
+        
+        # Load questions from JSON
+        with open('frontend/assets/questions.json', 'r') as f:
+            questions_data = json.load(f)
+        
+        # Find relevant questions based on keywords
+        relevant_questions = []
+        for role in questions_data['job_roles']:
+            for question in role['questions']:
+                if any(keyword in question.lower() for keyword in keywords):
+                    relevant_questions.append({
+                        'question': question,
+                        'topics': keywords[:3]  # Use top 3 keywords as topics
+                    })
+        
+        # Send analysis back to room
+        emit('voice_analysis', {
+            'analysis': f"Keywords detected: {', '.join(keywords[:5])}",
+            'questions': relevant_questions[:3]  # Send top 3 relevant questions
+        }, room=room_id)
+        
+    except Exception as e:
+        print(f"Error processing voice transcript: {e}")
+
+@socketio.on('join_room')
+def on_join(data):
+    room = data['roomId']
+    user_name = data['userName']
+    is_interviewer = data.get('isInterviewer', False)
+    
+    print(f"User {user_name} joining room {room} as {'interviewer' if is_interviewer else 'interviewee'}")
+    
+    join_room(room)
+    
+    # Store user role in room data
+    if 'room_data' not in session:
+        session['room_data'] = {}
+    session['room_data'][room] = {
+        'is_interviewer': is_interviewer,
+        'user_name': user_name
+    }
+    
+    emit('user_joined', {
+        'user': user_name,
+        'isInterviewer': is_interviewer
+    }, room=room)
+
+@socketio.on('offer')
+def handle_offer(data):
+    print("Handling offer")
+    room = data['roomId']
+    emit('offer', {
+        'offer': data['offer']
+    }, room=room, include_self=False)
+
+@socketio.on('answer')
+def handle_answer(data):
+    print("Handling answer")
+    room = data['roomId']
+    emit('answer', {
+        'answer': data['answer']
+    }, room=room, include_self=False)
+
+@socketio.on('ice_candidate')
+def handle_ice_candidate(data):
+    print("Handling ICE candidate")
+    room = data['roomId']
+    emit('ice_candidate', {
+        'candidate': data['candidate']
+    }, room=room, include_self=False)
+
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='127.0.0.1', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    socketio.run(app, debug=True, host='127.0.0.1', port=port)

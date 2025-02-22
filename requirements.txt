@@ -33,11 +33,16 @@ pytest==7.4.4
 
 # Additional dependencies
 dnspython
-flask-cors
+flask-cors==4.0.0
 
 # WebRTC and WebSocket dependencies
 flask-socketio==4.3.1
-python-engineio==3.13.2
-python-socketio==4.6.0
-gevent==22.10.2
+python-engineio==4.8.0
+python-socketio==5.10.0
+gevent==23.9.1
 gevent-websocket==0.10.1
+
+# Voice Recognition and NLP
+nltk==3.8.1
+speechrecognition==3.10.0
+PyAudio

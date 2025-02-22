@@ -814,7 +814,7 @@
             ]
         },
         {
-            "role": "Robotics Engineer",
+            "job_role": "Robotics Engineer",
             "questions": [
                 "What are the main components of a robotic system?",
                 "Explain forward and inverse kinematics in robotics.",
@@ -849,7 +849,7 @@
             ]
         },
         {
-            "role": "Computer Systems Design Engineer",
+            "job_role": "Computer Systems Design Engineer",
             "questions": [
                 "What is computer system architecture?",
                 "Explain the different types of memory hierarchy.",

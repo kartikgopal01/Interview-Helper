@@ -27,43 +27,49 @@
           </h1>
 
           <form method="POST" class="space-y-6">
-            <div>
-              <label
-                for="interview_key"
-                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Interview Key
-              </label>
-              <input
-                type="text"
-                name="interview_key"
-                required
-                class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter unique interview key"
-              />
+            <div class="form-group">
+              <label>Your Role</label>
+              <select name="role" id="roleSelect" required>
+                <option value="interviewer">Create New Interview (Interviewer)</option>
+                <option value="interviewee">Join Interview (Interviewee)</option>
+              </select>
             </div>
 
-            <div>
-              <label
-                for="role"
-                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Your Role
-              </label>
-              <select
-                name="role"
-                id="role"
-                required
-                class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                title="Select your role in the interview"
-              >
-                <option value="interviewer">
-                  Interviewer (Create New Interview)
-                </option>
-                <option value="interviewee">
-                  Interviewee (Join Existing Interview)
-                </option>
-              </select>
+            <div id="interviewerFields" class="conditional-fields">
+              <!-- Fields for creating new interview -->
+              <div class="form-group">
+                <label>Title</label>
+                <input type="text" name="title" placeholder="Interview Title">
+              </div>
+              <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" placeholder="Interview Description"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Required Role</label>
+                <select name="required_role" required class="w-full px-3 py-2 border rounded-lg">
+                  <option value="frontend">Frontend Developer</option>
+                  <option value="backend">Backend Developer</option>
+                  <option value="fullstack">Full Stack Developer</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Experience Level</label>
+                <select name="experience_level" required class="w-full px-3 py-2 border rounded-lg">
+                  <option value="junior">Junior (0-2 years)</option>
+                  <option value="intermediate">Intermediate (2-5 years)</option>
+                  <option value="senior">Senior (5+ years)</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="intervieweeFields" class="conditional-fields" style="display: none;">
+              <!-- Fields for joining interview -->
+              <div class="form-group">
+                <label>Interview Key</label>
+                <input type="text" name="interview_key" placeholder="Enter interview key">
+              </div>
             </div>
 
             <div id="dateTimeSection">
@@ -100,41 +106,6 @@
               </div>
             </div>
 
-            <div class="space-y-4">
-              <div>
-                <label>Interview Title</label>
-                <input type="text" name="title" required
-                       class="w-full px-3 py-2 border rounded-lg"
-                       placeholder="e.g., Frontend Developer Interview">
-              </div>
-              
-              <div>
-                <label>Description</label>
-                <textarea name="description" required
-                          class="w-full px-3 py-2 border rounded-lg"
-                          placeholder="Describe the interview and requirements..."></textarea>
-              </div>
-              
-              <div>
-                <label>Required Role</label>
-                <select name="required_role" required class="w-full px-3 py-2 border rounded-lg">
-                    <option value="frontend">Frontend Developer</option>
-                    <option value="backend">Backend Developer</option>
-                    <option value="fullstack">Full Stack Developer</option>
-                    <option value="other">Other</option>
-                </select>
-              </div>
-              
-              <div>
-                <label>Experience Level</label>
-                <select name="experience_level" required class="w-full px-3 py-2 border rounded-lg">
-                    <option value="junior">Junior (0-2 years)</option>
-                    <option value="intermediate">Intermediate (2-5 years)</option>
-                    <option value="senior">Senior (5+ years)</option>
-                </select>
-              </div>
-            </div>
-
             <div class="flex space-x-4">
               <button
                 type="submit"
@@ -155,23 +126,10 @@
     </section>
 
     <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        const roleSelect = document.querySelector('select[name="role"]');
-        const dateTimeSection = document.getElementById("dateTimeSection");
-        const dateInput = document.querySelector('input[name="date"]');
-        const timeInput = document.querySelector('input[name="time"]');
-
-        roleSelect.addEventListener("change", function () {
-          if (this.value === "interviewee") {
-            dateTimeSection.classList.add("hidden");
-            dateInput.removeAttribute("required");
-            timeInput.removeAttribute("required");
-          } else {
-            dateTimeSection.classList.remove("hidden");
-            dateInput.setAttribute("required", "required");
-            timeInput.setAttribute("required", "required");
-          }
-        });
+      document.getElementById('roleSelect').addEventListener('change', function() {
+        const isInterviewer = this.value === 'interviewer';
+        document.getElementById('interviewerFields').style.display = isInterviewer ? 'block' : 'none';
+        document.getElementById('intervieweeFields').style.display = isInterviewer ? 'none' : 'block';
       });
     </script>
   </body>
