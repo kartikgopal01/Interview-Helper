@@ -1,8 +1,10 @@
 # Tailwind Config
 tailwind.config.js
 
-# Virtual Environment
+# Virtual Environment andEnvironmental Variables 
 .venv
-
-# Environmental Variables
 .env
+
+# Flask Debug Log and pycache
+flask_debug.log
+__pycache__

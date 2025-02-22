@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -54,55 +54,49 @@ def get_ai_assistance(prompt):
     response = model.generate_content(prompt)
     return response.text
 
-# Auth Routes
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        name = request.form.get('name')
-        
-        if not all([email, password, name]):
-            flash('All fields are required')
-            return redirect(url_for('register'))
-        
-        if mongo.db.users.find_one({'email': email}):
-            flash('Email already exists')
-            return redirect(url_for('register'))
-        
-        user_data = {
-            'email': email,
-            'password': generate_password_hash(password),
-            'name': name,
-            'created_at': datetime.utcnow()
-        }
-        
-        try:
-            user_id = mongo.db.users.insert_one(user_data).inserted_id
-            user_data['_id'] = user_id
-            user = User(user_data)
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        except Exception as e:
-            flash(f'Error: {str(e)}')
-            return redirect(url_for('register'))
-    
-    return render_template('register.html')
-
+# Auth Route
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = request.json.get('email')
+        password = request.json.get('password')
+        confirm_password = request.json.get('confirm_password')
+        
+        if not password:
+            return jsonify({'success': False, 'message': 'Password is required'}), 400
         
         user_data = mongo.db.users.find_one({'email': email})
-        if user_data and check_password_hash(user_data['password'], password):
-            user = User(user_data)
-            login_user(user)
-            return redirect(url_for('dashboard'))
         
-        flash('Invalid credentials')
-    return render_template('login.html')
+        if user_data:
+            # Login process
+            if check_password_hash(user_data['password'], password):
+                user = User(user_data)
+                login_user(user)
+                return jsonify({'success': True, 'message': 'Logged in successfully', 'redirect': url_for('dashboard')})
+            else:
+                return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+        else:
+            # Registration process
+            if password != confirm_password:
+                return jsonify({'success': False, 'message': 'Passwords do not match'}), 400
+            
+            user_data = {
+                'email': email,
+                'password': generate_password_hash(password),
+                'name': email.split('@')[0],  # Use part of email as name
+                'created_at': datetime.utcnow()
+            }
+            
+            try:
+                user_id = mongo.db.users.insert_one(user_data).inserted_id
+                user_data['_id'] = user_id
+                user = User(user_data)
+                login_user(user)
+                return jsonify({'success': True, 'message': 'Account created successfully', 'redirect': url_for('dashboard')})
+            except Exception as e:
+                return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    
+    return render_template('pages/login.html', is_login_mode=True)
 
 @app.route('/logout')
 @login_required
@@ -112,12 +106,15 @@ def logout():
 
 # Main Routes
 @app.route('/')
-def home():
-    return redirect(url_for('index'))
-
-@app.route('/index')
 def index():
     return render_template('index.html')
+
+@app.route('/start')
+def start():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    else:
+        return redirect(url_for('login'))
 
 @app.route('/dashboard')
 @login_required
@@ -128,7 +125,7 @@ def dashboard():
             {'interviewee_id': current_user.id}
         ]
     }))
-    return render_template('dashboard.html', interviews=interviews)
+    return render_template('pages/dashboard.html', interviews=interviews)
 
 @app.route('/schedule-interview', methods=['GET', 'POST'])
 @login_required
@@ -187,7 +184,7 @@ def schedule_interview():
         
         return redirect(url_for('dashboard'))
     
-    return render_template('schedule_interview.html')
+    return render_template('pages/schedule_interview.html')
 
 @app.route('/interview-room/<interview_id>', methods=['GET', 'POST'])
 @login_required
@@ -230,7 +227,7 @@ def interview_room(interview_id):
                     flash(f'Error getting AI response: {str(e)}')
                 return redirect(url_for('interview_room', interview_id=interview_id))
         
-        return render_template('interview_room.html', 
+        return render_template('pages/interview_room.html', 
                              interview=interview,
                              messages=messages,
                              is_interviewer=is_interviewer)
@@ -238,5 +235,15 @@ def interview_room(interview_id):
         flash('Invalid interview ID')
         return redirect(url_for('dashboard'))
 
+@app.route('/check-email', methods=['POST'])
+def check_email():
+    email = request.json.get('email')
+    user_data = mongo.db.users.find_one({'email': email})
+    return jsonify({'exists': bool(user_data)})
+
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False, host='127.0.0.1', port=5000, threaded=True)
