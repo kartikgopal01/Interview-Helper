@@ -18,7 +18,7 @@ def setup_collections():
         
         # Sample user data
         users.insert_one({
-            'email': 'admin@example.com',
+            'email': 'cls',
             'password': generate_password_hash('admin123'),
             'name': 'Admin User',
             'role': 'admin',

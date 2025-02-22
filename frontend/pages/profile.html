@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile - Interview Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <script src="../assets/js/navbar.js"></script>
+  </head>
+  <body
+    class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
+  >
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      <h1 class="text-3xl font-bold mb-8 text-center gradient-text">
+        {{ username }}'s Profile
+      </h1>
+      <div class="glassmorphism rounded-2xl p-6 shadow-2xl">
+        <h2 class="text-2xl font-bold mb-4 gradient-text">
+          Recorded Interviews
+        </h2>
+        <ul class="list-disc pl-5 space-y-2 text-gray-600 dark:text-gray-400">
+          {% for video in videos %}
+          <li>
+            <a
+              href="{{ video }}"
+              class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-600"
+              >{{ video }}</a
+            >
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="mt-8 text-center">
+        <a
+          href="/dashboard"
+          class="px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold hover:scale-105 transition-transform"
+        >
+          Back to Dashboard
+        </a>
+      </div>
+    </div>
+  </body>
+</html>

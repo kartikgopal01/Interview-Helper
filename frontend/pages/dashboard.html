@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard - Interview Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <script src="../assets/js/navbar.js"></script>
+  </head>
+
+  <body
+    class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
+  >
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 glassmorphism">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6">
+        <div class="flex items-center justify-between h-20">
+          <div class="flex items-center space-x-8">
+            <a href="/" class="flex items-center space-x-2">
+              <img src="../assets/logo.png" alt="Logo" class="h-10" />
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Dashboard Content -->
+    <section class="pt-32 pb-20 px-4 relative overflow-hidden">
+      <div class="max-w-7xl mx-auto">
+        <h1 class="text-4xl font-bold mb-8 gradient-text">Your Interviews</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {% if interviews %} {% for interview in interviews %}
+          <div class="glassmorphism rounded-2xl p-6 hover-scale">
+            <h2 class="text-xl font-semibold mb-4">
+              Interview Key: {{ interview.interview_key }}
+            </h2>
+            <div class="space-y-2 text-gray-600 dark:text-gray-400">
+              <p>Date: {{ interview.date }}</p>
+              <p>Time: {{ interview.time }}</p>
+              <p>
+                Status:
+                <span
+                  class="{% if interview.status == 'waiting_for_interviewee' %}text-yellow-600 {% elif interview.status == 'scheduled' %}text-green-600 {% else %}text-gray-600{% endif %}"
+                >
+                  {{ interview.status }}
+                </span>
+              </p>
+            </div>
+            <div class="mt-6 flex space-x-4">
+              <a
+                href="{{ interview.meet_link }}"
+                target="_blank"
+                class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+              >
+                Join Meet
+              </a>
+              <a
+                href="{{ url_for('interview_room', interview_id=interview._id) }}"
+                class="px-4 py-2 rounded-xl border-2 border-blue-600 text-blue-600 font-semibold"
+              >
+                Interview Room
+              </a>
+            </div>
+          </div>
+          {% endfor %} {% else %}
+          <div class="col-span-full text-center py-12">
+            <p class="text-xl text-gray-600 dark:text-gray-400">
+              No interviews scheduled.
+            </p>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="mt-12 text-center">
+          <a
+            href="{{ url_for('schedule_interview') }}"
+            class="px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+          >
+            Schedule New Interview
+          </a>
+        </div>
+
+        <div class="mt-12 text-center">
+          <button
+            onclick="window.location.href='/start'"
+            class="px-8 py-4 rounded-xl bg-white text-blue-600 font-semibold hover:scale-105 transition-transform"
+          >
+            Begin your journey
+          </button>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>
+
+<!-- templates/schedule_interview.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Schedule Interview - Interview Platform</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+      <div class="max-w-md mx-auto bg-white rounded-lg shadow p-6">
+        <h1 class="text-2xl font-bold mb-6">Schedule New Interview</h1>
+
+        <form method="POST" class="space-y-4">
+          <div>
+            <label class="block mb-2">Interviewee Email:</label>
+            <input
+              type="email"
+              name="interviewee_email"
+              required
+              class="w-full px-3 py-2 border rounded"
+              placeholder="Enter interviewee's email"
+            />
+          </div>
+
+          <div>
+            <label class="block mb-2">Date:</label>
+            <input
+              type="date"
+              name="date"
+              required
+              class="w-full px-3 py-2 border rounded"
+              title="Select a date"
+            />
+          </div>
+
+          <div>
+            <label class="block mb-2">Time:</label>
+            <input
+              type="time"
+              name="time"
+              required
+              class="w-full px-3 py-2 border rounded"
+              title="Select a time"
+            />
+          </div>
+
+          <div class="flex space-x-4">
+            <button
+              type="submit"
+              class="bg-green-500 text-white px-4 py-2 rounded"
+            >
+              Schedule Interview
+            </button>
+            <a
+              href="{{ url_for('dashboard') }}"
+              class="bg-gray-500 text-white px-4 py-2 rounded"
+            >
+              Cancel
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

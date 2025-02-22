@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,9 +11,15 @@ from bson import ObjectId
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
-app.config['MONGO_URI'] = os.getenv('MONGO_URI', 'mongodb://localhost:27017/interview_platform')
+app = Flask(__name__, 
+            template_folder='frontend', 
+            static_folder='frontend/assets')
+
+# Configure the app
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config['MONGO_URI'] = os.getenv('MONGO_URI')
+
+# Initialize MongoDB
 mongo = PyMongo(app)
 
 # Initialize Login Manager
@@ -43,7 +49,6 @@ def load_user(user_id):
         print(f"Error loading user: {e}")
         return None
 
-
 def get_ai_assistance(prompt):
     model = genai.GenerativeModel('gemini-pro')
     response = model.generate_content(prompt)
@@ -57,7 +62,6 @@ def register():
         password = request.form.get('password')
         name = request.form.get('name')
         
-        # Validate required fields
         if not all([email, password, name]):
             flash('All fields are required')
             return redirect(url_for('register'))
@@ -84,6 +88,7 @@ def register():
             return redirect(url_for('register'))
     
     return render_template('register.html')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -98,6 +103,7 @@ def login():
         
         flash('Invalid credentials')
     return render_template('login.html')
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -106,15 +112,16 @@ def logout():
 
 # Main Routes
 @app.route('/')
+def home():
+    return redirect(url_for('index'))
+
+@app.route('/index')
 def index():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
     return render_template('index.html')
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Get interviews where user is either interviewer or interviewee
     interviews = list(mongo.db.interviews.find({
         '$or': [
             {'interviewer_id': current_user.id},
@@ -232,19 +239,4 @@ def interview_room(interview_id):
         return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
-    port = 8000
-    max_attempts = 10
-    
-    while port < 8000 + max_attempts:
-        try:
-            print(f"Attempting to start server on port {port}")
-            app.run(host='127.0.0.1', port=port, debug=True)
-            break
-        except OSError:
-            print(f"Port {port} is in use, trying next port")
-            port += 1
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            break
-    else:
-        print(f"Could not find an available port after {max_attempts} attempts")
+    app.run(debug=True)

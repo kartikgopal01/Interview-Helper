@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interview Room - Interview Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <script src="../assets/js/navbar.js"></script>
+  </head>
+  <body
+    class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
+  >
+    <div class="max-w-7xl mx-auto pt-32 px-4 py-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Meet Section -->
+        <div class="glassmorphism rounded-2xl p-6 shadow-2xl">
+          <h2 class="text-2xl font-bold mb-4 gradient-text">Video Call</h2>
+          <p class="mb-4 text-gray-600 dark:text-gray-400">
+            Join the Google Meet call to start the interview:
+          </p>
+          <a
+            href="{{ interview.meet_link }}"
+            target="_blank"
+            class="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+          >
+            Join Google Meet
+          </a>
+        </div>
+
+        <!-- Chat and AI Assistant Section -->
+        <div class="glassmorphism rounded-2xl p-6 shadow-2xl">
+          <h2 class="text-2xl font-bold mb-4 gradient-text">
+            Chat & AI Assistant
+          </h2>
+          <div class="h-96 flex flex-col">
+            <!-- Chat Messages -->
+            <div
+              id="chat-messages"
+              class="flex-1 overflow-y-auto mb-4 p-4 border rounded bg-white dark:bg-gray-800"
+            >
+              {% for message in messages %}
+              <div
+                class="mb-2 {% if message.user_id == 'AI' %}text-green-600{% endif %}"
+              >
+                <strong>{{ message.user_name }}:</strong> {{ message.content }}
+              </div>
+              {% endfor %}
+            </div>
+
+            <!-- Message Input -->
+            <form method="POST" class="mb-2">
+              <div class="flex space-x-2">
+                <input
+                  type="text"
+                  name="message"
+                  class="flex-1 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Type your message..."
+                />
+                <button
+                  type="submit"
+                  class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+                >
+                  Send
+                </button>
+              </div>
+            </form>
+
+            <!-- AI Assistant -->
+            <form method="POST">
+              <input
+                type="text"
+                name="ai_prompt"
+                class="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 mb-2"
+                placeholder="Ask AI Assistant..."
+              />
+              <button
+                type="submit"
+                class="w-full px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold"
+              >
+                Ask AI
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Scroll to bottom of messages on load
+      window.onload = function () {
+        const messagesDiv = document.getElementById("chat-messages");
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      };
+
+      // Refresh the page every 10 seconds
+      setInterval(() => {
+        location.reload();
+      }, 10000); // 10000 milliseconds = 10 seconds
+    </script>
+  </body>
+</html>

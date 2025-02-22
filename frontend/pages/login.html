@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Authentication - Interview Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <script src="../assets/js/navbar.js"></script>
+    <script src="../assets/js/login.js" defer></script>
+  </head>
+
+  <body
+    class="bg-gray-50 text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
+  >
+    <div class="pt-32 w-full max-w-md p-8 mx-auto my-auto">
+      <div class="glassmorphism rounded-2xl p-10 shadow-2xl">
+        <div class="flex items-center justify-center mb-8">
+          <a href="#" class="flex items-center space-x-2 text-2xl"> Lets get going! </a>
+        </div>
+
+        <form id="authForm" class="space-y-6">
+          <div>
+            <label
+              for="email"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              Email Address
+            </label>
+            <input
+              type="email"
+              id="email"
+              required
+              class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="you@example.com"
+            />
+          </div>
+
+          <div>
+            <label
+              for="password"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              Password
+            </label>
+            <div class="relative">
+              <input
+                type="password"
+                id="password"
+                required
+                class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                placeholder="Enter your password"
+              />
+              <button
+                title="Toggle Password Visibility"
+                type="button"
+                id="togglePassword"
+                class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-blue-600"
+              >
+                <svg
+                  class="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div id="confirmPasswordSection" class="hidden">
+            <label
+              for="confirmPassword"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              id="confirmPassword"
+              class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="Confirm your password"
+            />
+          </div>
+
+          <div id="loginOptions" class="flex items-center justify-between">
+            <div class="flex items-center">
+              <input
+                id="remember"
+                type="checkbox"
+                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label
+                for="remember"
+                class="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+              >
+                Remember me
+              </label>
+            </div>
+
+            <div class="text-sm">
+              <a href="#" class="font-medium text-blue-600 hover:text-blue-500">
+                Forgot password?
+              </a>
+            </div>
+          </div>
+
+          <button
+            title="Submit"
+            type="submit"
+            id="submitButton"
+            class="w-full px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+          >
+            Start your adventure
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const pageTitle = document.getElementById("pageTitle");
+        const submitButton = document.getElementById("submitButton");
+        const switchAuthText = document.getElementById("switchAuthText");
+        const switchAuthLink = document.getElementById("switchAuth");
+        const confirmPasswordSection = document.getElementById(
+          "confirmPasswordSection"
+        );
+        const loginOptions = document.getElementById("loginOptions");
+        const authForm = document.getElementById("authForm");
+
+        let isLoginMode = true;
+
+        switchAuthLink.addEventListener("click", (e) => {
+          e.preventDefault();
+          isLoginMode = !isLoginMode;
+
+          if (isLoginMode) {
+            pageTitle.textContent = "Login";
+            submitButton.textContent = "Login";
+            switchAuthText.innerHTML = `Don't have an account? <a href="#" id="switchAuth" class="font-medium text-blue-600 hover:text-blue-500">Sign up</a>`;
+            confirmPasswordSection.classList.add("hidden");
+            loginOptions.classList.remove("hidden");
+          } else {
+            pageTitle.textContent = "Sign Up";
+            submitButton.textContent = "Create Account";
+            switchAuthText.innerHTML = `Already have an account? <a href="#" id="switchAuth" class="font-medium text-blue-600 hover:text-blue-500">Login</a>`;
+            confirmPasswordSection.classList.remove("hidden");
+            loginOptions.classList.add("hidden");
+          }
+        });
+
+        authForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const email = document.getElementById("email").value;
+          const password = document.getElementById("password").value;
+
+          if (!isLoginMode) {
+            const confirmPassword =
+              document.getElementById("confirmPassword").value;
+            if (password !== confirmPassword) {
+              alert("Passwords do not match");
+              return;
+            }
+          }
+
+          // Here you would typically add your authentication logic
+          console.log(isLoginMode ? "Logging in" : "Signing up", email);
+        });
+      });
+    </script>
+  </body>
+</html>

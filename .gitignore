@@ -1,0 +1,8 @@
+# Tailwind Config
+tailwind.config.js
+
+# Virtual Environment
+.venv
+
+# Environmental Variables
+.env

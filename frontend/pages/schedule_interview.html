@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Schedule Interview - Interview Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <script src="../assets/js/navbar.js"></script>
+  </head>
+
+  <body
+    class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
+  >
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 glassmorphism">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6">
+        <div class="flex items-center justify-between h-20">
+          <div class="flex items-center space-x-8">
+            <a href="/" class="flex items-center space-x-2">
+              <img src="../assets/logo.png" alt="Logo" class="h-10" />
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Schedule Interview Content -->
+    <section
+      class="pt-32 pb-20 px-4 relative overflow-hidden flex items-center justify-center"
+    >
+      <div class="w-full max-w-md">
+        <div class="glassmorphism rounded-2xl p-10 shadow-2xl">
+          <h1 class="text-3xl font-bold mb-8 text-center gradient-text">
+            Schedule Interview
+          </h1>
+
+          <form method="POST" class="space-y-6">
+            <div>
+              <label
+                for="interview_key"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
+                Interview Key
+              </label>
+              <input
+                type="text"
+                name="interview_key"
+                required
+                class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter unique interview key"
+              />
+            </div>
+
+            <div>
+              <label
+                for="role"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
+                Your Role
+              </label>
+              <select
+                name="role"
+                id="role"
+                required
+                class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title="Select your role in the interview"
+              >
+                <option value="interviewer">
+                  Interviewer (Create New Interview)
+                </option>
+                <option value="interviewee">
+                  Interviewee (Join Existing Interview)
+                </option>
+              </select>
+            </div>
+
+            <div id="dateTimeSection">
+              <div class="mb-4">
+                <label
+                  for="date"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Date
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  required
+                  class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Select a date"
+                />
+              </div>
+
+              <div>
+                <label
+                  for="time"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Time
+                </label>
+                <input
+                  type="time"
+                  name="time"
+                  required
+                  class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Select a time"
+                />
+              </div>
+            </div>
+
+            <div class="flex space-x-4">
+              <button
+                type="submit"
+                class="w-full px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+              >
+                Submit
+              </button>
+              <a
+                href="{{ url_for('dashboard') }}"
+                class="w-full px-8 py-4 rounded-xl border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold"
+              >
+                Cancel
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const roleSelect = document.querySelector('select[name="role"]');
+        const dateTimeSection = document.getElementById("dateTimeSection");
+        const dateInput = document.querySelector('input[name="date"]');
+        const timeInput = document.querySelector('input[name="time"]');
+
+        roleSelect.addEventListener("change", function () {
+          if (this.value === "interviewee") {
+            dateTimeSection.classList.add("hidden");
+            dateInput.removeAttribute("required");
+            timeInput.removeAttribute("required");
+          } else {
+            dateTimeSection.classList.remove("hidden");
+            dateInput.setAttribute("required", "required");
+            timeInput.setAttribute("required", "required");
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
