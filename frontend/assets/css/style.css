@@ -217,3 +217,8 @@ textarea:focus {
   transform: translateY(0);
   transition: opacity 300ms, transform 300ms;
 }
+
+.nav-link.active {
+  font-weight: bold;
+  color: #80a2ff;
+}

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Peer-to-Peer Interview - Interview Helper</title>
+    <title>Peer-to-Peer Interview - JobSaarathi</title>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
@@ -11,12 +11,17 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="../assets/css/style.css" />
+    <script>
+      const isLoggedIn = "{{ 'true' if is_logged_in else 'false' }}";
+    </script>
     <script src="../assets/js/navbar.js"></script>
   </head>
   <body
     class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
   >
-    <div class="pt-32 flex flex-col items-center justify-center max-w-3xl mx-auto px-4 py-8">
+    <div
+      class="pt-32 flex flex-col items-center justify-center max-w-3xl mx-auto px-4 py-8"
+    >
       <h1 class="text-3xl font-bold mb-8 text-center gradient-text">
         Peer-to-Peer Interview
       </h1>

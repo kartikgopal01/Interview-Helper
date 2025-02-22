@@ -1,6 +1,3 @@
-from gevent import monkey
-monkey.patch_all()
-
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_pymongo import PyMongo
@@ -11,10 +8,8 @@ import os
 from dotenv import load_dotenv
 from bson import ObjectId
 import json
-import uuid
-import threading
-from flask import Response
-from flask_socketio import SocketIO, emit
+from threading import Thread
+import time
 
 # Load environment variables
 load_dotenv()
@@ -38,9 +33,6 @@ login_manager.login_view = 'login'
 
 # Initialize Gemini AI
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-
-# Initialize SocketIO with gevent
-socketio = SocketIO(app, async_mode='gevent')
 
 class User(UserMixin):
     def __init__(self, user_data):
@@ -131,53 +123,39 @@ def start():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Get interviews where user is either interviewer or interviewee
-    my_interviews = list(mongo.db.interviews.find({
+    interviews = list(mongo.db.interviews.find({
         '$or': [
             {'interviewer_id': current_user.id},
             {'interviewee_id': current_user.id}
         ]
     }))
-    
-    # Get available interviews (where user can join as interviewee)
-    available_interviews = list(mongo.db.interviews.find({
-        'interviewee_id': None,  # No interviewee yet
-        'interviewer_id': {'$ne': current_user.id},  # Not the interviewer
-        'status': 'waiting_for_interviewee'
-    }))
-
-    return render_template('pages/dashboard.html', 
-                         my_interviews=my_interviews,
-                         available_interviews=available_interviews)
+    return render_template('pages/dashboard.html', interviews=interviews, is_logged_in=current_user.is_authenticated)
 
 @app.route('/schedule-interview', methods=['GET', 'POST'])
 @login_required
 def schedule_interview():
     if request.method == 'POST':
+        interview_key = request.form.get('interview_key')
         role = request.form.get('role')
+        date = request.form.get('date')
+        time = request.form.get('time')
+        
+        # Check if interview with this key exists
+        existing_interview = mongo.db.interviews.find_one({'interview_key': interview_key})
         
         if role == 'interviewer':
-            # Get interviewer form data
-            title = request.form.get('title')
-            description = request.form.get('description')
-            required_role = request.form.get('required_role')
-            experience_level = request.form.get('experience_level')
-            date = request.form.get('date')
-            time = request.form.get('time')
+            if existing_interview:
+                flash('Interview key already exists. Please choose a different key.')
+                return redirect(url_for('schedule_interview'))
             
-            interview_key = str(uuid.uuid4())[:8]
-            meet_link = create_google_meet(interview_key)
+            # Generate Google Meet link
+            meet_link = f"https://meet.google.com/{interview_key}"
             
+            # Create new interview
             interview_data = {
                 'interview_key': interview_key,
                 'interviewer_id': current_user.id,
-                'interviewer_name': current_user.name,
-                'interviewee_id': None,
-                'interviewee_name': None,
-                'title': title,
-                'description': description,
-                'required_role': required_role,
-                'experience_level': experience_level,
+                'interviewee_id': None,  # Will be filled when interviewee joins
                 'date': date,
                 'time': time,
                 'status': 'waiting_for_interviewee',
@@ -185,52 +163,32 @@ def schedule_interview():
                 'created_at': datetime.now(timezone.utc)
             }
             mongo.db.interviews.insert_one(interview_data)
-            flash(f'Interview created successfully. Key: {interview_key}')
+            flash('Interview created successfully. Share the key with the interviewee.')
             
         elif role == 'interviewee':
-            interview_key = request.form.get('interview_key')
+            if not existing_interview:
+                flash('Interview key not found. Please check the key.')
+                return redirect(url_for('schedule_interview'))
             
-            # Find the interview first
-            interview = mongo.db.interviews.find_one({
-                'interview_key': interview_key,
-                'status': 'waiting_for_interviewee'
-            })
+            if existing_interview['interviewee_id']:
+                flash('This interview already has an interviewee.')
+                return redirect(url_for('schedule_interview'))
             
-            if not interview:
-                flash('Interview not found or already has an interviewee')
-                return redirect(url_for('dashboard'))
-            
-            # For testing: Allow joining your own interview
-            if interview['interviewer_id'] == current_user.id:
-                # Create a temporary test user
-                test_user_data = {
-                    '_id': ObjectId(),
-                    'name': f"Test Interviewee ({current_user.name})",
-                    'email': f"test_{current_user.id}@test.com",
-                    'is_test_user': True
-                }
-                interviewee_id = test_user_data['_id']
-                interviewee_name = test_user_data['name']
-            else:
-                interviewee_id = current_user.id
-                interviewee_name = current_user.name
-            
-            # Update the interview
+            # Join existing interview as interviewee
             mongo.db.interviews.update_one(
                 {'interview_key': interview_key},
                 {
                     '$set': {
-                        'interviewee_id': interviewee_id,
-                        'interviewee_name': interviewee_name,
+                        'interviewee_id': current_user.id,
                         'status': 'scheduled'
                     }
                 }
             )
-            flash('Successfully joined the interview!')
-            
+            flash('Successfully joined the interview.')
+        
         return redirect(url_for('dashboard'))
     
-    return render_template('pages/schedule_interview.html')
+    return render_template('pages/schedule_interview.html', is_logged_in=current_user.is_authenticated)
 
 @app.route('/interview-room/<interview_id>', methods=['GET', 'POST'])
 @login_required
@@ -244,13 +202,40 @@ def interview_room(interview_id):
         is_interviewer = current_user.id == interview['interviewer_id']
         messages = list(mongo.db.messages.find({'interview_id': interview_id}).sort('created_at', 1))
         
+        if request.method == 'POST':
+            if 'message' in request.form:
+                # Handle chat message
+                message = request.form.get('message')
+                mongo.db.messages.insert_one({
+                    'interview_id': interview_id,
+                    'user_id': current_user.id,
+                    'user_name': current_user.name,
+                    'content': message,
+                    'created_at': datetime.now(timezone.utc)
+                })
+                return redirect(url_for('interview_room', interview_id=interview_id))
+            
+            elif 'ai_prompt' in request.form:
+                # Handle AI assistance
+                prompt = request.form.get('ai_prompt')
+                try:
+                    ai_response = get_ai_assistance(prompt)
+                    mongo.db.messages.insert_one({
+                        'interview_id': interview_id,
+                        'user_id': 'AI',
+                        'user_name': 'AI Assistant',
+                        'content': ai_response,
+                        'created_at': datetime.now(timezone.utc)
+                    })
+                except Exception as e:
+                    flash(f'Error getting AI response: {str(e)}')
+                return redirect(url_for('interview_room', interview_id=interview_id))
+        
         return render_template('pages/interview_room.html', 
                              interview=interview,
                              messages=messages,
                              is_interviewer=is_interviewer,
-                             user_name=current_user.name,
-                             user_id=current_user.id)
-    
+                             is_logged_in=current_user.is_authenticated)
     except Exception as e:
         flash('Invalid interview ID')
         return redirect(url_for('dashboard'))
@@ -268,7 +253,7 @@ def favicon():
 @app.route('/practice', methods=['GET'])
 @login_required
 def practice():
-    return render_template('pages/practice.html')
+    return render_template('pages/practice.html', is_logged_in=current_user.is_authenticated)
 
 @app.route('/get-random-question', methods=['GET'])
 @login_required
@@ -400,46 +385,18 @@ def practice_analytics():
 @app.route('/analytics')
 @login_required
 def analytics():
-    return render_template('pages/analytics.html')
+    return render_template('pages/analytics.html', is_logged_in=current_user.is_authenticated)
 
-@app.route('/get-interview-questions/<interview_id>', methods=['POST'])
+@app.route('/delete-interview/<interview_id>', methods=['POST'])
 @login_required
-def get_interview_questions_route(interview_id):
-    try:
-        data = request.get_json()
-        role = data.get('role', 'general')
-        context = data.get('context', '')  # Previous conversation context
-        
-        # Get predefined questions
-        questions = get_interview_questions(role)
-        
-        # Use Gemini to customize questions based on context
-        if context:
-            prompt = f"""
-            Based on this interview context: "{context}"
-            And considering these base questions: {questions}
-            Suggest 3 relevant follow-up technical questions.
-            Format the response as a JSON array of questions.
-            """
-            
-            ai_suggestions = get_ai_assistance(prompt)
-            try:
-                # Try to parse AI response as JSON
-                import json
-                suggested_questions = json.loads(ai_suggestions)
-                questions = suggested_questions
-            except:
-                # Fallback to predefined questions if AI response isn't valid JSON
-                pass
-        
-        return jsonify({
-            'success': True,
-            'questions': questions[:3]  # Return top 3 questions
-        })
-        
-    except Exception as e:
-        print(f"Error getting interview questions: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+def delete_interview(interview_id):
+    interview = mongo.db.interviews.find_one({'_id': ObjectId(interview_id)})
+    if interview and interview['interviewer_id'] == current_user.id:
+        mongo.db.interviews.delete_one({'_id': ObjectId(interview_id)})
+        flash('Interview deleted successfully.')
+    else:
+        flash('You are not authorized to delete this interview.')
+    return redirect(url_for('dashboard'))
 
 @app.errorhandler(400)
 def bad_request(e):
@@ -453,122 +410,18 @@ def not_found(e):
 def server_error(e):
     return jsonify(error=str(e)), 500
 
-# Modify create_google_meet function
-def create_google_meet(interview_id):
-    # Create a room URL for our second server
-    return f"http://localhost:5001/meet/{interview_id}"
-
-# Add this function to generate interview questions
-def get_interview_questions(role, level='intermediate'):
-    questions_by_role = {
-        'frontend': [
-            "Explain the difference between let, const, and var in JavaScript.",
-            "What is the virtual DOM in React?",
-            "How does CSS specificity work?",
-            "Explain event bubbling in JavaScript.",
-            "What are closures in JavaScript?"
-        ],
-        'backend': [
-            "What is REST API?",
-            "Explain database indexing.",
-            "What is dependency injection?",
-            "How do you handle API security?",
-            "Explain the concept of caching."
-        ],
-        'fullstack': [
-            "Compare SQL and NoSQL databases.",
-            "Explain JWT authentication.",
-            "What is CORS?",
-            "Describe the MVC pattern.",
-            "How do you optimize website performance?"
-        ]
-    }
-    
-    return questions_by_role.get(role, ["General coding question 1", "General coding question 2"])
-
-# Add socket event for getting next question
-@socketio.on('get_next_question')
-def handle_next_question(data):
-    interview_id = data.get('interview_id')
-    current_question = data.get('current_question', 0)
-    role = data.get('role', 'general')
-    
-    try:
-        # Get conversation context
-        messages = list(mongo.db.messages.find({
-            'interview_id': interview_id
-        }).sort('created_at', -1).limit(5))  # Get last 5 messages for context
-        
-        context = " ".join([m['content'] for m in messages])
-        
-        prompt = f"""
-        Based on this interview context: "{context}"
-        Previous question number: {current_question}
-        Role: {role}
-        
-        Generate a relevant technical interview question that:
-        1. Follows up on previous discussion if relevant
-        2. Is appropriate for the {role} role
-        3. Gradually increases in difficulty
-        4. Tests both theoretical and practical knowledge
-        
-        Format response as JSON:
-        {{
-            "question": "your question here",
-            "expected_topics": ["topic1", "topic2"],
-            "difficulty_level": "beginner/intermediate/advanced"
-        }}
-        """
-        
-        ai_response = get_ai_assistance(prompt)
-        try:
-            question_data = json.loads(ai_response)
-        except:
-            # Fallback to predefined questions if AI response isn't valid
-            questions = get_interview_questions(role)
-            question_data = {
-                "question": questions[current_question % len(questions)],
-                "expected_topics": [role],
-                "difficulty_level": "intermediate"
-            }
-        
-        emit('next_question', question_data)
-        
-    except Exception as e:
-        print(f"Error generating next question: {e}")
-        emit('error', {'message': str(e)})
-
-# Add this function to check if interview is expired
-def is_interview_expired(interview):
-    interview_datetime = datetime.strptime(f"{interview['date']} {interview['time']}", "%Y-%m-%d %H:%M")
-    interview_datetime = interview_datetime.replace(tzinfo=timezone.utc)
-    current_time = datetime.now(timezone.utc)
-    return current_time > (interview_datetime + timedelta(minutes=15))
-
-# Add new route for deleting interviews
-@app.route('/delete-interview/<interview_id>', methods=['POST'])
-@login_required
-def delete_interview(interview_id):
-    try:
-        # Find interview and verify ownership
-        interview = mongo.db.interviews.find_one({
-            '_id': ObjectId(interview_id),
-            'interviewer_id': current_user.id
+def auto_delete_meetings():
+    while True:
+        now = datetime.now(timezone.utc)
+        cutoff_time = now - timedelta(minutes=30)
+        mongo.db.interviews.delete_many({
+            'status': 'waiting_for_interviewee',
+            'created_at': {'$lt': cutoff_time}
         })
-        
-        if not interview:
-            flash('Interview not found or you do not have permission to delete it')
-            return redirect(url_for('dashboard'))
-        
-        # Delete the interview and its messages
-        mongo.db.interviews.delete_one({'_id': ObjectId(interview_id)})
-        mongo.db.messages.delete_many({'interview_id': interview_id})
-        
-        flash('Interview deleted successfully')
-    except Exception as e:
-        flash('Error deleting interview')
-    
-    return redirect(url_for('dashboard'))
+        time.sleep(1800)  # Run every 30 minutes
+
+Thread(target=auto_delete_meetings, daemon=True).start()
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='127.0.0.1', port=5000)
+    Thread(target=auto_delete_meetings, daemon=True).start()
+    app.run(debug=True, host='127.0.0.1', port=5000, threaded=True, ssl_context=None)

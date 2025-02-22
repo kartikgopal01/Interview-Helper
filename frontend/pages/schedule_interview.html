@@ -3,13 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Schedule Interview - Interview Helper</title>
+    <title>Schedule Interview - JobSaarathi</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="../assets/css/style.css" />
+    <script>
+      const isLoggedIn = "{{ 'true' if is_logged_in else 'false' }}";
+    </script>
     <script src="../assets/js/navbar.js"></script>
   </head>
 
@@ -97,41 +100,6 @@
                   class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   title="Select a time"
                 />
-              </div>
-            </div>
-
-            <div class="space-y-4">
-              <div>
-                <label>Interview Title</label>
-                <input type="text" name="title" required
-                       class="w-full px-3 py-2 border rounded-lg"
-                       placeholder="e.g., Frontend Developer Interview">
-              </div>
-              
-              <div>
-                <label>Description</label>
-                <textarea name="description" required
-                          class="w-full px-3 py-2 border rounded-lg"
-                          placeholder="Describe the interview and requirements..."></textarea>
-              </div>
-              
-              <div>
-                <label>Required Role</label>
-                <select name="required_role" required class="w-full px-3 py-2 border rounded-lg">
-                    <option value="frontend">Frontend Developer</option>
-                    <option value="backend">Backend Developer</option>
-                    <option value="fullstack">Full Stack Developer</option>
-                    <option value="other">Other</option>
-                </select>
-              </div>
-              
-              <div>
-                <label>Experience Level</label>
-                <select name="experience_level" required class="w-full px-3 py-2 border rounded-lg">
-                    <option value="junior">Junior (0-2 years)</option>
-                    <option value="intermediate">Intermediate (2-5 years)</option>
-                    <option value="senior">Senior (5+ years)</option>
-                </select>
               </div>
             </div>
 

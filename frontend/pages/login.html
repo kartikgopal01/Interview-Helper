@@ -3,13 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Authentication - Interview Helper</title>
+    <title>Authentication - JobSaarathi</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="../assets/css/style.css" />
+    <script>
+      const isLoggedIn = "{{ 'true' if is_logged_in else 'false' }}";
+    </script>
     <script src="../assets/js/navbar.js"></script>
     <script src="../assets/js/login.js" defer></script>
   </head>
@@ -17,7 +20,9 @@
   <body
     class="bg-gray-50 text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
   >
-    <div class="pt-32 w-full max-w-md p-8 mx-auto my-auto">
+    <div
+      class="flex flex-col items-center justify-center h-screen pt-32 w-full max-w-lg p-8 mx-auto my-auto"
+    >
       <div class="glassmorphism rounded-2xl p-10 shadow-2xl">
         <div class="flex items-center justify-center mb-10">
           <a href="#" class="flex items-center space-x-2 text-3xl">

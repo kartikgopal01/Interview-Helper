@@ -3,41 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Interview Room - Interview Helper</title>
+    <title>Interview Room - JobSaarathi</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="../assets/css/style.css" />
+    <script>
+      const isLoggedIn = "{{ 'true' if is_logged_in else 'false' }}";
+    </script>
     <script src="../assets/js/navbar.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
   </head>
   <body
     class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
-    data-room-id="{{ interview.interview_key }}"
-    data-user-name="{{ user_name }}"
-    data-user-id="{{ user_id }}"
   >
     <div class="max-w-7xl h-full lg:h-screen mx-auto pt-32 px-4 py-8">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Video Chat Section -->
+        <!-- Meet Section -->
         <div class="glassmorphism rounded-2xl p-6 shadow-2xl">
           <h2 class="text-2xl font-bold mb-4 gradient-text">Video Call</h2>
-          <div class="video-container grid grid-cols-2 gap-4">
-            <div class="local-video-wrapper relative">
-              <video id="localVideo" autoplay playsinline muted class="w-full rounded-lg"></video>
-              <span class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">You</span>
-            </div>
-            <div class="remote-video-wrapper relative">
-              <video id="remoteVideo" autoplay playsinline class="w-full rounded-lg"></video>
-              <span class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">Peer</span>
-            </div>
-          </div>
-          <div class="controls mt-4 flex justify-center space-x-4">
-            <button id="toggleVideo" class="px-4 py-2 rounded-xl bg-blue-600 text-white">Toggle Video</button>
-            <button id="toggleAudio" class="px-4 py-2 rounded-xl bg-blue-600 text-white">Toggle Audio</button>
-          </div>
+          <p class="mb-4 text-gray-600 dark:text-gray-400">
+            Join the Google Meet call to start the interview:
+          </p>
+          <a
+            href="{{ interview.meet_link }}"
+            target="_blank"
+            class="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+          >
+            Join Google Meet
+          </a>
         </div>
 
         <!-- Chat and AI Assistant Section -->
@@ -99,123 +94,16 @@
     </div>
 
     <script>
-      const socket = io();
-      const roomId = document.body.getAttribute('data-room-id');
-      const userName = document.body.getAttribute('data-user-name');
-      let localStream;
-      let peerConnection;
-
-      const configuration = {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ]
+      // Scroll to bottom of messages on load
+      window.onload = function () {
+        const messagesDiv = document.getElementById("chat-messages");
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
       };
 
-      async function initializeCall() {
-        try {
-          localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-          });
-          document.getElementById('localVideo').srcObject = localStream;
-
-          socket.emit('join_room', {
-            roomId: roomId,
-            userName: userName
-          });
-        } catch (e) {
-          console.error('Error accessing media devices:', e);
-        }
-      }
-
-      socket.on('start_call', async () => {
-        peerConnection = new RTCPeerConnection(configuration);
-        
-        // Add local stream
-        localStream.getTracks().forEach(track => {
-          peerConnection.addTrack(track, localStream);
-        });
-
-        // Handle incoming stream
-        peerConnection.ontrack = event => {
-          document.getElementById('remoteVideo').srcObject = event.streams[0];
-        };
-
-        // Handle ICE candidates
-        peerConnection.onicecandidate = event => {
-          if (event.candidate) {
-            socket.emit('ice_candidate', {
-              roomId: roomId,
-              candidate: event.candidate
-            });
-          }
-        };
-
-        // Create and send offer
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        socket.emit('offer', {
-          roomId: roomId,
-          offer: offer
-        });
-      });
-
-      socket.on('offer', async data => {
-        if (!peerConnection) {
-          peerConnection = new RTCPeerConnection(configuration);
-          
-          localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-          });
-
-          peerConnection.ontrack = event => {
-            document.getElementById('remoteVideo').srcObject = event.streams[0];
-          };
-
-          peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-              socket.emit('ice_candidate', {
-                roomId: roomId,
-                candidate: event.candidate
-              });
-            }
-          };
-        }
-
-        await peerConnection.setRemoteDescription(data.offer);
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        
-        socket.emit('answer', {
-          roomId: roomId,
-          answer: answer
-        });
-      });
-
-      socket.on('answer', async data => {
-        await peerConnection.setRemoteDescription(data.answer);
-      });
-
-      socket.on('ice_candidate', async data => {
-        if (peerConnection) {
-          await peerConnection.addIceCandidate(data.candidate);
-        }
-      });
-
-      // Handle media controls
-      document.getElementById('toggleVideo').addEventListener('click', () => {
-        const videoTrack = localStream.getVideoTracks()[0];
-        videoTrack.enabled = !videoTrack.enabled;
-      });
-
-      document.getElementById('toggleAudio').addEventListener('click', () => {
-        const audioTrack = localStream.getAudioTracks()[0];
-        audioTrack.enabled = !audioTrack.enabled;
-      });
-
-      // Initialize call when page loads
-      initializeCall();
+      // Refresh the page every 10 seconds
+      setInterval(() => {
+        location.reload();
+      }, 10000); // 10000 milliseconds = 10 seconds
     </script>
   </body>
 </html>
