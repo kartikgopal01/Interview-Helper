@@ -9,11 +9,111 @@ document.addEventListener('DOMContentLoaded', () => {
   const passwordInput = document.getElementById('password');
   const confirmPasswordInput = document.getElementById('confirmPassword');
   const togglePasswordBtn = document.getElementById('togglePassword');
+  const logoElement = document.querySelector('.logo-pulse');
 
-  // Password visibility toggle
+  // Add any additional initialization logic from the HTML script here
   togglePasswordBtn.addEventListener('click', () => {
-    const type = passwordInput.type === 'password' ? 'text' : 'password';
-    passwordInput.type = type;
+    passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+  });
+
+  // Add a promise-based delay function
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Loading screen
+  const createLoadingOverlay = () => {
+    const overlay = document.createElement('div');
+    overlay.className = `
+      fixed 
+      inset-0 
+      bg-white 
+      dark:bg-gray-900 
+      z-50 
+      flex 
+      items-center 
+      justify-center 
+      opacity-0 
+      transition-opacity 
+      duration-500
+    `;
+    
+    const logoContainer = document.createElement('div');
+    logoContainer.className = 'text-center';
+    
+    const logo = document.createElement('img');
+    logo.src = 'assets/logo.png'; // Ensure this path is correct
+    logo.alt = 'JobSaarathi';
+    logo.className = 'w-64 h-auto logo-pulse animate-pulse';
+    
+    logoContainer.appendChild(logo);
+    overlay.appendChild(logoContainer);
+    
+    document.body.appendChild(overlay);
+    
+    // Trigger reflow
+    overlay.offsetHeight;
+    overlay.style.opacity = '1';
+    
+    return overlay;
+  };
+
+  authForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const password = passwordInput.value.trim();
+    const confirmPassword = confirmPasswordInput.value.trim();
+
+    // Disable submit button during processing
+    submitButton.disabled = true;
+    submitButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+    // Create loading overlay
+    const loadingOverlay = createLoadingOverlay();
+
+    if (!isLoginMode) {
+      if (password !== confirmPassword) {
+        loadingOverlay.remove();
+        submitButton.disabled = false;
+        submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        return;
+      }
+    }
+
+    try {
+      // Send authentication request to Flask backend
+      const response = await fetch('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: emailInput.value.trim(),
+          password: password,
+          mode: isLoginMode ? 'login' : 'signup'
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Extend loading time
+        await delay(3000);
+        
+        // Redirect to the specified URL
+        if (result.redirect) {
+          window.location.href = result.redirect;
+        }
+      } else {
+        // Authentication failed
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => loadingOverlay.remove(), 500);
+        submitButton.disabled = false;
+        submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    } catch (error) {
+      loadingOverlay.style.opacity = '0';
+      setTimeout(() => loadingOverlay.remove(), 500);
+      submitButton.disabled = false;
+      submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
   });
 
   emailForm.addEventListener("submit", async (e) => {
@@ -34,13 +134,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (result.exists) {
       // User exists, proceed to login
       isLoginMode = true;
-      pageTitle.textContent = "Login";
+      pageTitle.textContent = "";
       submitButton.textContent = "Login";
       confirmPasswordSection.classList.add("hidden");
     } else {
       // New user, proceed to signup
       isLoginMode = false;
-      pageTitle.textContent = "Sign Up";
+      pageTitle.textContent = "";
       submitButton.textContent = "Create Account";
       confirmPasswordSection.classList.remove("hidden");
     }
@@ -50,51 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
     authForm.classList.remove("hidden");
   });
 
-  authForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const password = passwordInput.value.trim();
-    const confirmPassword = confirmPasswordInput.value.trim();
-
-    if (!isLoginMode) {
-      // Debugging: Log passwords to console
-      console.log("Password:", password);
-      console.log("Confirm Password:", confirmPassword);
-
-      if (password !== confirmPassword) {
-        alert("Passwords do not match");
-        return;
-      }
+  // Logo pulse animation
+  const pulseLogo = async () => {
+    if (logoElement) {
+      logoElement.classList.add('animate-pulse');
+      await delay(2000);
+      logoElement.classList.remove('animate-pulse');
     }
-
-    // Prepare authentication data
-    const authData = {
-      email: emailInput.value.trim(),
-      password: password,
-      mode: isLoginMode ? 'login' : 'signup'
-    };
-
-    // Send authentication request to Flask backend
-    const response = await fetch('/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(authData)
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-      // Successful authentication
-      alert(result.message);
-      
-      // Redirect to the specified URL
-      if (result.redirect) {
-        window.location.href = result.redirect;
-      }
-    } else {
-      // Authentication failed
-      alert(result.message || 'Authentication failed');
-    }
-  });
+  };
 });

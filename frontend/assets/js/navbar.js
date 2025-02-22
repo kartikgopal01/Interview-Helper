@@ -21,6 +21,10 @@ document.addEventListener("DOMContentLoaded", () => {
             Resources
             <span class="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform scale-x-0 transition-transform origin-left hover:scale-x-100"></span>
           </a>
+          <a href="/logout" class="nav-link text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 relative">
+            Logout
+            <span class="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform scale-x-0 transition-transform origin-left hover:scale-x-100"></span>
+          </a>
         </div>
         <button id="theme-toggle" class="p-2 flex items-center justify-end rounded-full">
           <svg id="sun-icon" class="w-6 h-6 text-gray-700 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

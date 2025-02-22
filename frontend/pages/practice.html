@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Practice - TechPrep AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <script src="../assets/js/navbar.js"></script>
+    <script src="../assets/js/practice.js"></script>
+  </head>
+  <body class="bg-gray-50 text-black dark:text-white dark:bg-gray-900">
+    <div class="container pt-32 mx-auto px-10 py-10">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Practice Section -->
+        <div class="glassmorphism p-6 rounded-xl">
+          <h2 class="text-2xl font-bold mb-6 text-blue-400">
+            Practice Questions
+          </h2>
+
+          <!-- Role Selection -->
+          <div class="mb-6">
+            <label class="block text-gray-300 text-sm font-semibold mb-2"
+              >Select Role</label
+            >
+            <select
+              title="Select Role"
+              id="roleSelect"
+              class="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Choose a role...</option>
+            </select>
+          </div>
+
+          <!-- Question Area -->
+          <div id="questionArea" class="hidden">
+            <div class="mb-6">
+              <h3 class="text-xl font-semibold mb-3 text-blue-400">
+                Question:
+              </h3>
+              <p
+                id="currentQuestion"
+                class="text-gray-300 bg-gray-800 p-4 rounded-lg"
+              ></p>
+            </div>
+
+            <div class="mb-6">
+              <label class="block text-gray-300 text-sm font-semibold mb-2"
+                >Your Answer:</label
+              >
+              <textarea
+                title="Enter Your Answer"
+                id="answerInput"
+                class="w-full p-4 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 h-32"
+              ></textarea>
+            </div>
+
+            <div class="flex justify-between">
+              <button
+                id="submitAnswer"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition duration-300 flex items-center space-x-2"
+              >
+                <span id="submitAnswerText">Submit Answer</span>
+                <div
+                  id="submitSpinner"
+                  class="loading-spinner w-5 h-5 hidden"
+                ></div>
+              </button>
+              <button
+                id="nextQuestion"
+                class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg transition duration-300"
+              >
+                Next Question
+              </button>
+            </div>
+          </div>
+
+          <!-- Add a View Analytics button -->
+          <div class="mt-4 text-center">
+            <a
+              href="/analytics"
+              class="inline-block bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg transition duration-300"
+            >
+              View Detailed Analytics
+            </a>
+          </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div class="glassmorphism p-6 rounded-xl">
+          <h2 class="text-2xl font-bold mb-6 text-blue-400">Your Progress</h2>
+
+          <div class="mb-6 bg-gray-800 p-4 rounded-lg min-h-[300px]">
+            <canvas id="scoreChart"></canvas>
+          </div>
+
+          <div id="analytics" class="text-gray-300">
+            <!-- Will be populated with analytics data -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Assessment Results Modal -->
+      <div
+        id="assessmentModal"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50"
+      >
+        <div
+          class="relative mx-auto p-6 border border-gray-700 w-full max-w-md shadow-lg rounded-xl bg-gray-900"
+        >
+          <div class="mt-3">
+            <h3 class="text-xl font-bold text-blue-400 mb-4">
+              Assessment Results
+            </h3>
+            <div id="assessmentResults" class="text-gray-300 space-y-4">
+              <!-- Will be populated with assessment results -->
+            </div>
+            <div class="mt-6 flex justify-center">
+              <button
+                id="closeModal"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition duration-300"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

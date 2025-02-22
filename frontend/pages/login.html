@@ -19,21 +19,17 @@
   >
     <div class="pt-32 w-full max-w-md p-8 mx-auto my-auto">
       <div class="glassmorphism rounded-2xl p-10 shadow-2xl">
-        <div class="flex items-center justify-center mb-8">
-          <a href="#" class="flex items-center space-x-2 text-2xl"> Lets get going! </a>
+        <div class="flex items-center justify-center mb-10">
+          <a href="#" class="flex items-center space-x-2 text-3xl">
+            Lets get going!
+          </a>
         </div>
 
-        <h1 id="pageTitle">Enter Your Email</h1>
+        <h1 id="pageTitle" class="text-xl mb-4">Enter Your Email</h1>
 
         <!-- Step 1: Email Form -->
         <form id="emailForm" class="space-y-6">
           <div>
-            <label
-              for="email"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              Email Address
-            </label>
             <input
               type="email"
               id="email"
@@ -55,12 +51,7 @@
         <!-- Step 2: Password Form -->
         <form id="authForm" class="space-y-6 hidden">
           <div>
-            <label
-              for="password"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              Password
-            </label>
+            <h1 id="pageTitle" class="text-xl mb-4">Enter Your Password</h1>
             <div class="relative">
               <input
                 type="password"
@@ -101,7 +92,7 @@
           <div id="confirmPasswordSection" class="hidden">
             <label
               for="confirmPassword"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              class="block text-xl mb-4 font-medium text-gray-700 dark:text-gray-300"
             >
               Confirm Password
             </label>
@@ -124,94 +115,5 @@
         </form>
       </div>
     </div>
-
-    <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        let isLoginMode = true;
-        const emailForm = document.getElementById("emailForm");
-        const authForm = document.getElementById("authForm");
-        const pageTitle = document.getElementById("pageTitle");
-        const submitButton = document.getElementById("submitButton");
-        const confirmPasswordSection = document.getElementById("confirmPasswordSection");
-
-        emailForm.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const email = document.getElementById("email").value;
-
-          // Check if the email exists
-          const response = await fetch('/check-email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email })
-          });
-
-          const result = await response.json();
-
-          if (result.exists) {
-            // User exists, proceed to login
-            isLoginMode = true;
-            pageTitle.textContent = "Login";
-            submitButton.textContent = "Login";
-            confirmPasswordSection.classList.add("hidden");
-          } else {
-            // New user, proceed to signup
-            isLoginMode = false;
-            pageTitle.textContent = "Sign Up";
-            submitButton.textContent = "Create Account";
-            confirmPasswordSection.classList.remove("hidden");
-          }
-
-          // Show the password form
-          emailForm.classList.add("hidden");
-          authForm.classList.remove("hidden");
-        });
-
-        authForm.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const password = document.getElementById("password").value;
-
-          if (!isLoginMode) {
-            const confirmPassword = document.getElementById("confirmPassword").value;
-            if (password !== confirmPassword) {
-              alert("Passwords do not match");
-              return;
-            }
-          }
-
-          // Prepare authentication data
-          const authData = {
-            email: document.getElementById("email").value,
-            password: password,
-            mode: isLoginMode ? 'login' : 'signup'
-          };
-
-          // Send authentication request to Flask backend
-          const response = await fetch('/login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(authData)
-          });
-
-          const result = await response.json();
-
-          if (result.success) {
-            // Successful authentication
-            alert(result.message);
-            
-            // Redirect to the specified URL
-            if (result.redirect) {
-              window.location.href = result.redirect;
-            }
-          } else {
-            // Authentication failed
-            alert(result.message || 'Authentication failed');
-          }
-        });
-      });
-    </script>
   </body>
 </html>

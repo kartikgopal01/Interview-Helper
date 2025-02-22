@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
           current = value;
         }
         obj.textContent =
-          Math.round(current) + (elementId === "stat3" ? "%" : "K+");
+          Math.round(current) + (elementId === "stat3" ? "%" : "+");
       }, 16);
     }
   }

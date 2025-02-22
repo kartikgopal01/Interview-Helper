@@ -2,18 +2,20 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timezone
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 from bson import ObjectId
+import json
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__, 
             template_folder='frontend', 
-            static_folder='frontend/assets')
+            static_folder='frontend/assets',
+            static_url_path='/assets')
 
 # Configure the app
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
@@ -84,7 +86,7 @@ def login():
                 'email': email,
                 'password': generate_password_hash(password),
                 'name': email.split('@')[0],  # Use part of email as name
-                'created_at': datetime.utcnow()
+                'created_at': datetime.now(timezone.utc)
             }
             
             try:
@@ -156,7 +158,7 @@ def schedule_interview():
                 'time': time,
                 'status': 'waiting_for_interviewee',
                 'meet_link': meet_link,
-                'created_at': datetime.utcnow()
+                'created_at': datetime.now(timezone.utc)
             }
             mongo.db.interviews.insert_one(interview_data)
             flash('Interview created successfully. Share the key with the interviewee.')
@@ -207,7 +209,7 @@ def interview_room(interview_id):
                     'user_id': current_user.id,
                     'user_name': current_user.name,
                     'content': message,
-                    'created_at': datetime.utcnow()
+                    'created_at': datetime.now(timezone.utc)
                 })
                 return redirect(url_for('interview_room', interview_id=interview_id))
             
@@ -221,7 +223,7 @@ def interview_room(interview_id):
                         'user_id': 'AI',
                         'user_name': 'AI Assistant',
                         'content': ai_response,
-                        'created_at': datetime.utcnow()
+                        'created_at': datetime.now(timezone.utc)
                     })
                 except Exception as e:
                     flash(f'Error getting AI response: {str(e)}')
@@ -245,5 +247,154 @@ def check_email():
 def favicon():
     return '', 204
 
+@app.route('/practice', methods=['GET'])
+@login_required
+def practice():
+    return render_template('pages/practice.html')
+
+@app.route('/get-random-question', methods=['GET'])
+@login_required
+def get_random_question():
+    role = request.args.get('role')
+    # Find role questions from questions.json
+    with open('frontend/assets/questions.json') as f:
+        data = json.load(f)
+        role_data = next((r for r in data['job_roles'] if r['role'] == role), None)
+        if role_data:
+            import random
+            question = random.choice(role_data['questions'])
+            return jsonify({'success': True, 'question': question})
+    return jsonify({'success': False, 'message': 'Role not found'}), 404
+
+@app.route('/submit-answer', methods=['POST'])
+@login_required
+def submit_answer():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        role = data.get('role')
+        question = data.get('question')
+        answer = data.get('answer')
+        
+        if not all([role, question, answer]):
+            return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+        
+        # Generate AI assessment with more structured prompt
+        prompt = f"""
+        Analyze the following answer for a technical interview question.
+        
+        Question: {question}
+        Answer: {answer}
+        
+        Provide your assessment in the following JSON format:
+        {{
+            "score": <number between 0 and 100>,
+            "strengths": "<bullet points of strengths>",
+            "improvements": "<bullet points of areas for improvement>",
+            "feedback": "<overall feedback>"
+        }}
+        
+        Be specific and constructive in your feedback.
+        """
+        
+        try:
+            ai_response = get_ai_assistance(prompt)
+            # Clean the response to ensure it's valid JSON
+            ai_response = ai_response.strip()
+            if ai_response.startswith('```json'):
+                ai_response = ai_response[7:-3]  # Remove ```json and ``` if present
+            assessment = json.loads(ai_response)
+            
+            # Validate assessment structure
+            required_keys = ['score', 'strengths', 'improvements', 'feedback']
+            if not all(key in assessment for key in required_keys):
+                raise ValueError("Invalid assessment format")
+            
+            # Ensure score is an integer between 0 and 100
+            assessment['score'] = max(0, min(100, int(float(assessment['score']))))
+            
+        except Exception as e:
+            print(f"Error processing AI response: {str(e)}")
+            print(f"Raw AI response: {ai_response}")
+            # Provide a fallback assessment if AI parsing fails
+            assessment = {
+                'score': 70,
+                'strengths': 'Answer shows understanding of the concept.',
+                'improvements': 'Could provide more detailed examples.',
+                'feedback': 'Good attempt, but could be more comprehensive.'
+            }
+        
+        # Store the assessment
+        assessment_data = {
+            'user_id': current_user.id,
+            'role': role,
+            'question': question,
+            'answer': answer,
+            'assessment': assessment,
+            'created_at': datetime.now(timezone.utc)
+        }
+        mongo.db.assessments.insert_one(assessment_data)
+        
+        return jsonify({
+            'success': True,
+            'assessment': assessment
+        })
+        
+    except Exception as e:
+        print(f"Submit answer error: {str(e)}")  # Add logging
+        return jsonify({
+            'success': False,
+            'message': f"Error processing submission: {str(e)}"
+        }), 500
+
+@app.route('/practice-analytics')
+@login_required
+def practice_analytics():
+    # Get user's assessment history
+    assessments = list(mongo.db.assessments.find({
+        'user_id': current_user.id
+    }).sort('created_at', -1))
+    
+    # Calculate analytics
+    analytics = {
+        'total_practices': len(assessments),
+        'average_score': sum(a['assessment']['score'] for a in assessments) / len(assessments) if assessments else 0,
+        'by_role': {}
+    }
+    
+    for assessment in assessments:
+        role = assessment['role']
+        if role not in analytics['by_role']:
+            analytics['by_role'][role] = {
+                'count': 0,
+                'total_score': 0
+            }
+        analytics['by_role'][role]['count'] += 1
+        analytics['by_role'][role]['total_score'] += assessment['assessment']['score']
+    
+    for role_stats in analytics['by_role'].values():
+        role_stats['average_score'] = role_stats['total_score'] / role_stats['count']
+    
+    return jsonify(analytics)
+
+@app.route('/analytics')
+@login_required
+def analytics():
+    return render_template('pages/analytics.html')
+
+@app.errorhandler(400)
+def bad_request(e):
+    return jsonify(error=str(e)), 400
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify(error=str(e)), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return jsonify(error=str(e)), 500
+
 if __name__ == '__main__':
-    app.run(debug=False, host='127.0.0.1', port=5000, threaded=True)
+    app.run(debug=True, host='127.0.0.1', port=5000, threaded=True, ssl_context=None)

@@ -22,53 +22,48 @@
         <h1 class="text-4xl font-bold mb-8 gradient-text">Your Interviews</h1>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {% if interviews %}
-            {% for interview in interviews %}
-              <div class="glassmorphism rounded-2xl p-6 hover-scale">
-                <h2 class="text-xl font-semibold mb-4">
-                  Interview Key: {{ interview.interview_key }}
-                </h2>
-                <div class="space-y-2 text-gray-600 dark:text-gray-400">
-                  <p>Date: {{ interview.date }}</p>
-                  <p>Time: {{ interview.time }}</p>
-                  <p>
-                    Status:
-                    <span
-                      class="{% if interview.status == 'waiting_for_interviewee' %}text-yellow-600 {% elif interview.status == 'scheduled' %}text-green-600 {% else %}text-gray-600{% endif %}"
-                    >
-                      {% if interview.status == 'waiting_for_interviewee' %}
-                        Waiting for Interviewee
-                      {% elif interview.status == 'scheduled' %}
-                        Scheduled
-                      {% else %}
-                        {{ interview.status | capitalize }}
-                      {% endif %}
-                    </span>
-                  </p>
-                </div>
-                <div class="mt-6 flex space-x-4">
-                  <a
-                    href="{{ interview.meet_link }}"
-                    target="_blank"
-                    class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
-                  >
-                    Join Meet
-                  </a>
-                  <a
-                    href="{{ url_for('interview_room', interview_id=interview._id) }}"
-                    class="px-4 py-2 rounded-xl border-2 border-blue-600 text-blue-600 font-semibold"
-                  >
-                    Interview Room
-                  </a>
-                </div>
-              </div>
-            {% endfor %}
-          {% else %}
-            <div class="col-span-full text-center py-12">
-              <p class="text-xl text-gray-600 dark:text-gray-400">
-                No interviews scheduled.
+          {% if interviews %} {% for interview in interviews %}
+          <div class="glassmorphism rounded-2xl p-6">
+            <h2 class="text-xl font-semibold mb-4">
+              Interview Key: {{ interview.interview_key }}
+            </h2>
+            <div class="space-y-2 text-gray-600 dark:text-gray-400">
+              <p>Date: {{ interview.date }}</p>
+              <p>Time: {{ interview.time }}</p>
+              <p>
+                Status:
+                <span
+                  class="{% if interview.status == 'waiting_for_interviewee' %}text-yellow-600 {% elif interview.status == 'scheduled' %}text-green-600 {% else %}text-gray-600{% endif %}"
+                >
+                  {% if interview.status == 'waiting_for_interviewee' %} Waiting
+                  for Interviewee {% elif interview.status == 'scheduled' %}
+                  Scheduled {% else %} {{ interview.status | capitalize }} {%
+                  endif %}
+                </span>
               </p>
             </div>
+            <div class="mt-6 flex space-x-4">
+              <a
+                href="{{ interview.meet_link }}"
+                target="_blank"
+                class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+              >
+                Join Meet
+              </a>
+              <a
+                href="{{ url_for('interview_room', interview_id=interview._id) }}"
+                class="px-4 py-2 rounded-xl border-2 border-blue-600 text-blue-600 font-semibold"
+              >
+                Interview Room
+              </a>
+            </div>
+          </div>
+          {% endfor %} {% else %}
+          <div class="col-span-full text-center py-12">
+            <p class="text-xl text-gray-600 dark:text-gray-400">
+              No interviews scheduled.
+            </p>
+          </div>
           {% endif %}
         </div>
 

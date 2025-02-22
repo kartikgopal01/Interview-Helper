@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Practice Analytics - TechPrep AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <script src="../assets/js/navbar.js"></script>
+    <script src="../assets/js/analytics.js"></script>
+  </head>
+  <body class="bg-gray-50 text-black dark:text-white dark:bg-gray-900">
+    <div class="container mx-auto pt-32 px-10 py-20">
+      <h1 class="text-3xl font-bold text-blue-400 mb-8">Practice Analytics</h1>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Overall Stats -->
+        <div class="glassmorphism p-6 rounded-xl">
+          <h2 class="text-2xl font-bold mb-6 text-blue-400">
+            Overall Performance
+          </h2>
+          <div id="overallStats" class="space-y-4">
+            <!-- Will be populated with JS -->
+          </div>
+        </div>
+
+        <!-- Score Distribution -->
+        <div class="glassmorphism p-6 rounded-xl">
+          <h2 class="text-2xl font-bold mb-6 text-blue-400">
+            Score Distribution
+          </h2>
+          <canvas id="scoreDistributionChart"></canvas>
+        </div>
+
+        <!-- Role Performance -->
+        <div class="glassmorphism p-6 rounded-xl">
+          <h2 class="text-2xl font-bold mb-6 text-blue-400">
+            Performance by Role
+          </h2>
+          <canvas id="rolePerformanceChart"></canvas>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="glassmorphism p-6 rounded-xl">
+          <h2 class="text-2xl font-bold mb-6 text-blue-400">Recent Activity</h2>
+          <div id="recentActivity" class="space-y-4">
+            <!-- Will be populated with JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

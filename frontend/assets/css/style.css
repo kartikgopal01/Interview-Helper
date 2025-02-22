@@ -158,3 +158,62 @@ section {
 .text-center.mb-16.opacity-0 * {
   opacity: 0 !important;
 }
+
+.logo-pulse {
+  transition: transform 0.3s ease;
+}
+
+.logo-pulse.animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+/* Add these styles to fix the select and textarea appearance */
+select,
+textarea {
+  background-color: rgba(31, 41, 55, 0.8) !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
+}
+
+select:focus,
+textarea:focus {
+  border-color: #3b82f6 !important;
+  ring-color: #3b82f6 !important;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.fade-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
