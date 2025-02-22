@@ -3,28 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Interview Room - Interview Helper</title>
+    <title>Interview Room - JobSaarathi</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="../assets/css/style.css" />
+    <script>
+      const isLoggedIn = "{{ 'true' if is_logged_in else 'false' }}";
+    </script>
     <script src="../assets/js/navbar.js"></script>
+<<<<<<< HEAD
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/nltk@0.0.1/build/nltk.min.js"></script>
+=======
+>>>>>>> 0c90f11db36bb74deb19f99431e803ca10a40960
   </head>
   <body
     class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
-    data-room-id="{{ interview.interview_key }}"
-    data-user-name="{{ user_name }}"
-    data-user-id="{{ user_id }}"
   >
     <div class="max-w-7xl h-full lg:h-screen mx-auto pt-32 px-4 py-8">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Video Chat Section -->
+        <!-- Meet Section -->
         <div class="glassmorphism rounded-2xl p-6 shadow-2xl">
           <h2 class="text-2xl font-bold mb-4 gradient-text">Video Call</h2>
+<<<<<<< HEAD
           <div class="video-container grid grid-cols-2 gap-4">
             {% if is_interviewer %}
             <div class="local-video-wrapper relative">
@@ -62,6 +66,18 @@
             <button id="stopVoice" class="px-4 py-2 rounded-xl bg-red-600 text-white" disabled>Stop Voice Answer</button>
             {% endif %}
           </div>
+=======
+          <p class="mb-4 text-gray-600 dark:text-gray-400">
+            Join the Google Meet call to start the interview:
+          </p>
+          <a
+            href="{{ interview.meet_link }}"
+            target="_blank"
+            class="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+          >
+            Join Google Meet
+          </a>
+>>>>>>> 0c90f11db36bb74deb19f99431e803ca10a40960
         </div>
 
         <!-- Chat and AI Assistant Section -->
@@ -136,6 +152,7 @@
     </div>
 
     <script>
+<<<<<<< HEAD
       const socket = io('http://127.0.0.1:5002', {
           transports: ['websocket'],
           upgrade: false,
@@ -472,6 +489,18 @@
 
       // Initialize call when page loads
       initializeCall();
+=======
+      // Scroll to bottom of messages on load
+      window.onload = function () {
+        const messagesDiv = document.getElementById("chat-messages");
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      };
+
+      // Refresh the page every 10 seconds
+      setInterval(() => {
+        location.reload();
+      }, 10000); // 10000 milliseconds = 10 seconds
+>>>>>>> 0c90f11db36bb74deb19f99431e803ca10a40960
     </script>
   </body>
 </html>

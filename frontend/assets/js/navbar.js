@@ -1,4 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
+  console.log(isLoggedIn);
+
+  const currentPath = window.location.pathname;
+
   const navbarHTML = `
     <nav class="fixed right-0 left-0 z-50 m-5 glassmorphism">
     <div class="scroll-progress" id="scrollProgress"></div>
@@ -9,22 +13,28 @@ document.addEventListener("DOMContentLoaded", () => {
           </a>
         </div>
         <div class="flex items-center justify-center md:flex space-x-6">
-          <a href="/dashboard" class="nav-link text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 relative">
+          <a href="/dashboard" class="nav-link ${currentPath === '/dashboard' ? 'active' : ''} text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 relative">
             Dashboard
             <span class="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform scale-x-0 transition-transform origin-left hover:scale-x-100"></span>
           </a>
-          <a href="/practice" class="nav-link text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 relative">
+          <a href="/practice" class="nav-link ${currentPath === '/practice' ? 'active' : ''} text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 relative">
             Practice
             <span class="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform scale-x-0 transition-transform origin-left hover:scale-x-100"></span>
           </a>
-          <a href="/resources" class="nav-link text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 relative">
+          <a href="/resources" class="nav-link ${currentPath === '/resources' ? 'active' : ''} text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 relative">
             Resources
             <span class="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform scale-x-0 transition-transform origin-left hover:scale-x-100"></span>
           </a>
+          ${
+            isLoggedIn === "true"
+              ? `
           <a href="/logout" class="nav-link text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 relative">
             Logout
             <span class="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform scale-x-0 transition-transform origin-left hover:scale-x-100"></span>
           </a>
+          `
+              : ""
+          }
         </div>
         <button id="theme-toggle" class="p-2 flex items-center justify-end rounded-full">
           <svg id="sun-icon" class="w-6 h-6 text-gray-700 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

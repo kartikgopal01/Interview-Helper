@@ -1,18 +1,20 @@
 # Core Flask Ecosystem
-flask==2.0.3
-flask-login==0.5.0
+flask==3.0.0
+flask-login==0.6.3
 flask-pymongo==2.3.0
-werkzeug==2.0.3
+werkzeug==3.0.1
+flask_socketio==5.3.5
+flask_cors==5.0.0
 
 # Database
 pymongo==4.6.1
 
 # Authentication & Security
-python-dotenv
+python-dotenv==1.0.0
 passlib==1.7.4
 
 # AI Integration
-google-generativeai
+google-generativeai==0.3.2
 
 # SSL and Network
 pyopenssl==24.0.0
@@ -28,9 +30,13 @@ setuptools==69.0.3
 requests==2.31.0
 bson==0.5.10
 
-# Testing
-pytest==7.4.4
+# Frontend Asset Management
+python-dotenv==1.0.0
 
+# Testing
+pytest==7.4.4 
+
+<<<<<<< HEAD
 # Additional dependencies
 dnspython
 flask-cors==4.0.0
@@ -46,3 +52,7 @@ gevent-websocket==0.10.1
 nltk==3.8.1
 speechrecognition==3.10.0
 PyAudio
+=======
+# Asynchronous Server
+gevent==24.11.1
+>>>>>>> 0c90f11db36bb74deb19f99431e803ca10a40960
