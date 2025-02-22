@@ -16,66 +16,112 @@
   <body
     class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
   >
-    <!-- Dashboard Content -->
-    <section class="pt-32 pb-20 px-4 relative overflow-hidden">
-      <div class="max-w-7xl mx-auto">
-        <h1 class="text-4xl font-bold mb-8 gradient-text">Your Interviews</h1>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <h1 class="text-3xl font-bold mb-8 gradient-text">Dashboard</h1>
 
+      <!-- Create Interview Button -->
+      <div class="mb-8">
+        <a href="{{ url_for('schedule_interview') }}" 
+           class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            Create New Interview
+        </a>
+      </div>
+
+      <!-- My Interviews Section -->
+      <div class="mb-12">
+        <h2 class="text-2xl font-semibold mb-4">My Interviews</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {% if interviews %} {% for interview in interviews %}
-          <div class="glassmorphism rounded-2xl p-6">
-            <h2 class="text-xl font-semibold mb-4">
-              Interview Key: {{ interview.interview_key }}
-            </h2>
-            <div class="space-y-2 text-gray-600 dark:text-gray-400">
-              <p>Date: {{ interview.date }}</p>
-              <p>Time: {{ interview.time }}</p>
-              <p>
-                Status:
-                <span
-                  class="{% if interview.status == 'waiting_for_interviewee' %}text-yellow-600 {% elif interview.status == 'scheduled' %}text-green-600 {% else %}text-gray-600{% endif %}"
-                >
-                  {% if interview.status == 'waiting_for_interviewee' %} Waiting
-                  for Interviewee {% elif interview.status == 'scheduled' %}
-                  Scheduled {% else %} {{ interview.status | capitalize }} {%
-                  endif %}
-                </span>
+          {% for interview in my_interviews %}
+          <div class="glassmorphism p-6 rounded-xl">
+            <h3 class="text-xl font-bold mb-2">{{ interview.title }}</h3>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">{{ interview.description }}</p>
+            <div class="mb-4">
+              <p><strong>Date:</strong> {{ interview.date }}</p>
+              <p><strong>Time:</strong> {{ interview.time }}</p>
+              <p><strong>Role:</strong> {{ interview.required_role }}</p>
+              <p><strong>Level:</strong> {{ interview.experience_level }}</p>
+              <p><strong>Your Role:</strong> 
+                {% if current_user.id == interview.interviewer_id %}
+                <span class="text-blue-600">Interviewer</span>
+                {% else %}
+                <span class="text-green-600">Interviewee</span>
+                {% endif %}
               </p>
             </div>
-            <div class="mt-6 flex space-x-4">
-              <a
-                href="{{ interview.meet_link }}"
-                target="_blank"
-                class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
-              >
-                Join Meet
-              </a>
-              <a
-                href="{{ url_for('interview_room', interview_id=interview._id) }}"
-                class="px-4 py-2 rounded-xl border-2 border-blue-600 text-blue-600 font-semibold"
-              >
-                Interview Room
+            <div class="flex justify-between items-center">
+              <span class="px-3 py-1 rounded-full text-sm 
+                {% if interview.status == 'waiting_for_interviewee' %}bg-yellow-100 text-yellow-800
+                {% elif interview.status == 'scheduled' %}bg-green-100 text-green-800
+                {% endif %}">
+                {{ interview.status | replace('_', ' ') | title }}
+              </span>
+              <a href="{{ url_for('interview_room', interview_id=interview._id) }}" 
+                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                Join Room
               </a>
             </div>
           </div>
-          {% endfor %} {% else %}
-          <div class="col-span-full text-center py-12">
-            <p class="text-xl text-gray-600 dark:text-gray-400">
-              No interviews scheduled.
-            </p>
-          </div>
-          {% endif %}
-        </div>
-
-        <div class="mt-12 text-center">
-          <a
-            href="{{ url_for('schedule_interview') }}"
-            class="px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
-          >
-            Schedule New Interview
-          </a>
+          {% endfor %}
         </div>
       </div>
-    </section>
+
+      <!-- Available Interviews Section -->
+      <div>
+        <h2 class="text-2xl font-semibold mb-4">Available Interviews</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {% for interview in available_interviews %}
+          <div class="glassmorphism p-6 rounded-xl">
+            <h3 class="text-xl font-bold mb-2">{{ interview.title }}</h3>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">{{ interview.description }}</p>
+            <div class="mb-4">
+              <p><strong>Interviewer:</strong> {{ interview.interviewer_name }}</p>
+              <p><strong>Date:</strong> {{ interview.date }}</p>
+              <p><strong>Time:</strong> {{ interview.time }}</p>
+              <p><strong>Required Role:</strong> {{ interview.required_role }}</p>
+              <p><strong>Experience Level:</strong> {{ interview.experience_level }}</p>
+            </div>
+            <form method="POST" action="{{ url_for('schedule_interview') }}">
+              <input type="hidden" name="role" value="interviewee">
+              <input type="hidden" name="interview_key" value="{{ interview.interview_key }}">
+              <button type="submit" 
+                      class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                Join as Interviewee
+              </button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Add this script at the bottom of the body -->
+    <script>
+        function updateCountdown() {
+            document.querySelectorAll('.countdown').forEach(element => {
+                const date = element.dataset.date;
+                const time = element.dataset.time;
+                const interviewTime = new Date(`${date}T${time}`);
+                const expiryTime = new Date(interviewTime.getTime() + 15 * 60000); // Add 15 minutes
+                const now = new Date();
+                
+                const timeLeft = expiryTime - now;
+                
+                if (timeLeft <= 0) {
+                    element.innerHTML = 'Interview has expired';
+                    element.classList.add('text-red-600');
+                    // Reload page to update status
+                    location.reload();
+                } else {
+                    const minutes = Math.floor(timeLeft / 60000);
+                    const seconds = Math.floor((timeLeft % 60000) / 1000);
+                    element.innerHTML = `Time remaining: ${minutes}m ${seconds}s`;
+                }
+            });
+        }
+
+        // Update countdown every second
+        setInterval(updateCountdown, 1000);
+        updateCountdown(); // Initial update
+    </script>
   </body>
 </html>

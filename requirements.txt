@@ -1,25 +1,24 @@
 # Core Flask Ecosystem
-flask==3.0.0
-flask-login==0.6.3
+flask==2.0.3
+flask-login==0.5.0
 flask-pymongo==2.3.0
-werkzeug==3.0.1
+werkzeug==2.0.3
 
 # Database
 pymongo==4.6.1
 
 # Authentication & Security
-python-dotenv==1.0.0
+python-dotenv
 passlib==1.7.4
 
 # AI Integration
-google-generativeai==0.3.2
+google-generativeai
 
 # SSL and Network
 pyopenssl==24.0.0
 
 # Development & Debugging
 gunicorn==21.2.0
-logging==0.5.1.2
 
 # Environment & Package Management
 pip==23.3.2
@@ -29,8 +28,16 @@ setuptools==69.0.3
 requests==2.31.0
 bson==0.5.10
 
-# Frontend Asset Management
-python-dotenv==1.0.0
-
 # Testing
-pytest==7.4.4 
+pytest==7.4.4
+
+# Additional dependencies
+dnspython
+flask-cors
+
+# WebRTC and WebSocket dependencies
+flask-socketio==4.3.1
+python-engineio==3.13.2
+python-socketio==4.6.0
+gevent==22.10.2
+gevent-websocket==0.10.1
