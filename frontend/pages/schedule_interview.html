@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Schedule Interview - Interview Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <script>
+      const isLoggedIn = "{{ 'true' if isLoggedIn else 'false' }}";
+      console.log(`Schedule Interview page loaded, isLoggedIn: ${isLoggedIn}`);
+    </script>
+    <script src="../assets/js/navbar.js"></script>
+  </head>
+
+  <body
+    class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
+  >
+    <!-- Schedule Interview Content -->
+    <section
+      class="pt-32 pb-20 px-4 relative overflow-hidden flex items-center justify-center"
+    >
+      <div class="w-full max-w-md">
+        <div class="glassmorphism rounded-2xl p-10 shadow-2xl">
+          <h1 class="text-3xl font-bold mb-8 text-center gradient-text">
+            Schedule Interview
+          </h1>
+
+          <form method="POST" class="space-y-6">
+            <div class="form-group">
+              <label
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >Your Role</label
+              >
+              <select
+                name="role"
+                id="roleSelect"
+                required
+                title="Select your role"
+                class="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="interviewer">
+                  Create New Interview (Interviewer)
+                </option>
+                <option value="interviewee">
+                  Join Interview (Interviewee)
+                </option>
+              </select>
+            </div>
+
+            <div id="interviewerFields" class="conditional-fields space-y-4">
+              <!-- Fields for creating new interview -->
+              <div class="form-group">
+                <label
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >Title</label
+                >
+                <input
+                  type="text"
+                  name="title"
+                  placeholder="Interview Title"
+                  class="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div class="form-group">
+                <label
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >Description</label
+                >
+                <textarea
+                  name="description"
+                  placeholder="Interview Description"
+                  class="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >Required Role</label
+                >
+                <select
+                  name="required_role"
+                  required
+                  class="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Select the required role"
+                >
+                  <option value="frontend">Frontend Developer</option>
+                  <option value="backend">Backend Developer</option>
+                  <option value="fullstack">Full Stack Developer</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >Experience Level</label
+                >
+                <select
+                  name="experience_level"
+                  required
+                  class="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Select the experience level"
+                >
+                  <option value="junior">Junior (0-2 years)</option>
+                  <option value="intermediate">Intermediate (2-5 years)</option>
+                  <option value="senior">Senior (5+ years)</option>
+                </select>
+              </div>
+            </div>
+
+            <div
+              id="intervieweeFields"
+              class="conditional-fields space-y-4"
+            >
+              <!-- Fields for joining interview -->
+              <div class="form-group">
+                <label
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >Interview Key</label
+                >
+                <input
+                  type="text"
+                  name="interview_key"
+                  placeholder="Enter interview key"
+                  class="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div id="dateTimeSection" class="space-y-4">
+              <div class="mb-4">
+                <label
+                  for="date"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Date
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  required
+                  class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Select a date"
+                />
+              </div>
+
+              <div>
+                <label
+                  for="time"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Time
+                </label>
+                <input
+                  type="time"
+                  name="time"
+                  required
+                  class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Select a time"
+                />
+              </div>
+            </div>
+
+            <div class="flex space-x-4">
+              <button
+                type="submit"
+                class="w-full px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+              >
+                Submit
+              </button>
+              <a
+                href="{{ url_for('dashboard') }}"
+                class="w-full text-center px-8 py-4 rounded-xl border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold"
+              >
+                Cancel
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      document
+        .getElementById("roleSelect")
+        .addEventListener("change", function () {
+          const isInterviewer = this.value === "interviewer";
+          document.getElementById("interviewerFields").style.display =
+            isInterviewer ? "block" : "none";
+          document.getElementById("intervieweeFields").style.display =
+            isInterviewer ? "none" : "block";
+        });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interview Room - Interview Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <script>
+      const isLoggedIn = "{{ 'true' if isLoggedIn else 'false' }}";
+      console.log(`Interview Room page loaded, isLoggedIn: ${isLoggedIn}`);
+    </script>
+    <script src="../assets/js/navbar.js"></script>
+    <script src="/static/socket.io.js"></script>
+  </head>
+  <body
+    class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
+    data-room-id="{{ interview.interview_key }}"
+    data-user-name="{{ user_name }}"
+    data-user-id="{{ user_id }}"
+    data-is-interviewer="{{ 'true' if is_interviewer else 'false' }}"
+  >
+    <!-- Hidden input fields to pass server-side data to JavaScript -->
+    <input type="hidden" id="interview-id" value="{{ interview._id }}">
+    <input type="hidden" id="user-name" value="{{ user_name }}">
+    <input type="hidden" id="user-id" value="{{ user_id }}">
+    <input type="hidden" id="is-interviewer" value="{{ 'True' if is_interviewer else 'False' }}">
+
+    <div class="max-w-7xl h-full lg:h-screen mx-auto pt-32 px-4 py-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Video Chat Section -->
+        <div class="glassmorphism rounded-2xl p-6 shadow-2xl">
+          <h2 class="text-2xl font-bold mb-4 gradient-text">Video Call</h2>
+          <div class="video-container grid grid-cols-2 gap-4">
+            {% if is_interviewer %}
+            <div class="local-video-wrapper relative">
+              <video
+                id="localVideo"
+                autoplay
+                muted
+                class="w-1/4 max-w-xs rounded-lg shadow-md"
+              ></video>
+              <span
+                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
+              >
+                You (Interviewer)
+              </span>
+            </div>
+            <div class="remote-video-wrapper relative">
+              <video
+                id="remoteVideo"
+                autoplay
+                class="w-full max-w-lg rounded-lg shadow-lg"
+              ></video>
+              <span
+                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
+              >
+                Interviewee
+              </span>
+            </div>
+            {% else %}
+            <div class="remote-video-wrapper relative">
+              <video
+                id="remoteVideo"
+                autoplay
+                class="w-full max-w-lg rounded-lg shadow-lg"
+              ></video>
+              <span
+                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
+              >
+                Interviewer
+              </span>
+            </div>
+            <div class="local-video-wrapper relative">
+              <video
+                id="localVideo"
+                autoplay
+                muted
+                class="w-full max-w-xs rounded-lg shadow-md"
+              ></video>
+              <span
+                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
+              >
+                You (Interviewee)
+              </span>
+            </div>
+            {% endif %}
+          </div>
+          <div class="controls mt-4 flex justify-center space-x-4">
+            <button
+              id="toggleVideo"
+              class="px-4 py-2 rounded-xl bg-blue-600 text-white"
+            >
+              Toggle Video
+            </button>
+            <button
+              id="toggleAudio"
+              class="px-4 py-2 rounded-xl bg-blue-600 text-white"
+            >
+              Toggle Audio
+            </button>
+            {% if not is_interviewer %}
+            <button
+              id="startVoice"
+              class="px-4 py-2 rounded-xl bg-green-600 text-white"
+            >
+              Start Voice Answer
+            </button>
+            <button
+              id="stopVoice"
+              class="px-4 py-2 rounded-xl bg-red-600 text-white"
+              disabled
+            >
+              Stop Voice Answer
+            </button>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Chat and AI Assistant Section -->
+        <div class="glassmorphism rounded-2xl p-6 shadow-2xl">
+          <h2 class="text-2xl font-bold mb-4 gradient-text">
+            Chat & AI Assistant
+          </h2>
+          <div class="h-96 flex flex-col">
+            <!-- Chat Messages -->
+            <div
+              id="chat-messages"
+              class="flex-1 overflow-y-auto mb-4 p-4 border rounded bg-white dark:bg-gray-800"
+            >
+              {% for message in messages %}
+              <div
+                class="mb-2 {% if message.user_id == 'AI' %}text-green-600{% endif %}"
+              >
+                <strong>{{ message.user_name }}:</strong> {{ message.content }}
+              </div>
+              {% endfor %}
+            </div>
+
+            <!-- Message Input -->
+            <form id="messageForm" class="mb-2">
+              <div class="flex space-x-2">
+                <input
+                  type="text"
+                  id="messageInput"
+                  class="flex-1 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Type your message..."
+                />
+                <button
+                  type="submit"
+                  class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+                >
+                  Send
+                </button>
+              </div>
+            </form>
+
+            <!-- AI Assistant -->
+            <form id="aiForm" class="mb-2">
+              <input
+                type="text"
+                id="aiPrompt"
+                class="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 mb-2"
+                placeholder="Ask AI Assistant..."
+              />
+              <button
+                type="submit"
+                class="w-full px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold"
+              >
+                Ask AI
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add this after the video section -->
+      {% if is_interviewer %}
+      <div class="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+        <h3 class="text-lg font-semibold mb-2">AI Question Suggestions</h3>
+        <div id="aiQuestions" class="space-y-2">
+          <!-- AI questions will be populated here -->
+        </div>
+        <button
+          id="getNextQuestion"
+          class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg"
+        >
+          Get Next Question
+        </button>
+      </div>
+      {% endif %}
+    </div>
+    <div id="room-status" class="hidden text-center mb-4"></div>
+    
+    <div id="notifications" class="mb-4"></div>
+
+    <!-- Messages Container -->
+    <div id="messages-container" class="h-64 overflow-y-auto border rounded mb-4 p-2">
+      <!-- Existing messages will be loaded here -->
+      {% for message in messages %}
+        <div class="mb-2 p-2 rounded 
+          {{ 'bg-blue-100 text-right' if message.user_id == user_id else 'bg-gray-100' }}">
+          <span class="font-bold">
+            {{ message.user_name }}{{ ' (You)' if message.user_id == user_id else '' }}:
+          </span>
+          <p>{{ message.message }}</p>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Message Input -->
+    <div class="flex">
+      <input 
+        type="text" 
+        id="message-input" 
+        class="flex-grow p-2 border rounded-l" 
+        placeholder="Type your message..."
+      >
+      <button 
+        id="send-message-btn" 
+        class="bg-blue-500 text-white p-2 rounded-r"
+      >
+        Send
+      </button>
+    </div>
+
+    <script src="../assets/js/interview_room.js"></script>
+  </body>
+</html>
