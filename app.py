@@ -2,7 +2,7 @@ from gevent import monkey
 monkey.patch_all()
 
 # Now import other modules
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -13,14 +13,15 @@ from dotenv import load_dotenv
 from bson import ObjectId
 import json
 import uuid
-import threading
-from flask import Response
 from flask_socketio import SocketIO, emit
-import speech_recognition as sr
 import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from flask_cors import CORS
+from threading import Thread
+import time
+import logging
+import warnings
 
 # Load environment variables
 load_dotenv()
@@ -55,14 +56,37 @@ CORS(app, resources={
 })
 
 socketio = SocketIO(app, 
-    cors_allowed_origins=["http://127.0.0.1:5002"],
+    cors_allowed_origins="*",
     async_mode='gevent',
-    transport=['websocket']
+    ping_timeout=10,
+    ping_interval=5,
+    transports=['websocket'],
+    logger=False,  # Disable SocketIO logging
+    engineio_logger=False  # Disable engine.io logging
 )
 
 # Download required NLTK data
 nltk.download('punkt')
 nltk.download('stopwords')
+
+# Suppress specific warnings and logs
+logging.getLogger('gevent').setLevel(logging.ERROR)
+logging.getLogger('engineio').setLevel(logging.ERROR)
+logging.getLogger('socketio').setLevel(logging.ERROR)
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*Invalid HTTP method.*")
+
+# Optional: Create a custom filter to ignore specific log messages
+class SocketHandshakeFilter(logging.Filter):
+    def filter(self, record):
+        return not ('Invalid HTTP method' in record.getMessage() or 
+                    'SSL/TLS handshake' in record.getMessage())
+
+# Apply the filter to your logger
+logger = logging.getLogger()
+logger.addFilter(SocketHandshakeFilter())
 
 class User(UserMixin):
     def __init__(self, user_data):
@@ -260,7 +284,8 @@ def dashboard():
     return render_template('pages/dashboard.html', 
                            my_interviews=my_interviews,
                            available_interviews=available_interviews,
-                           isLoggedIn=is_logged_in)
+                           isLoggedIn=is_logged_in,
+                           current_user_email=current_user.email)
 
 @app.route('/schedule_interview', methods=['GET', 'POST'])
 @login_required
@@ -374,8 +399,8 @@ def favicon():
 @login_required
 def practice():
     is_logged_in = current_user.is_authenticated
-    print(f"Practice accessed, isLoggedIn: {is_logged_in}")
-    return render_template('pages/practice.html', isLoggedIn=is_logged_in)
+    return render_template('pages/practice.html', 
+        isLoggedIn='true' if is_logged_in else 'false')
 
 @app.route('/get-random-question', methods=['GET'])
 @login_required
@@ -508,8 +533,8 @@ def practice_analytics():
 @login_required
 def analytics():
     is_logged_in = current_user.is_authenticated
-    print(f"Analytics accessed, isLoggedIn: {is_logged_in}")
-    return render_template('pages/analytics.html', isLoggedIn=is_logged_in)
+    return render_template('pages/analytics.html', 
+        isLoggedIn='true' if is_logged_in else 'false')
 
 @app.route('/get-interview-questions/<interview_id>', methods=['POST'])
 @login_required
@@ -561,6 +586,11 @@ def not_found(e):
 @app.errorhandler(500)
 def server_error(e):
     return jsonify(error=str(e)), 500
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(e):
+    print(f"Unexpected error: {type(e).__name__} - {str(e)}")
+    return jsonify(error='Unexpected error'), 500
 
 # Modify create_google_meet function
 def create_google_meet(interview_id):
@@ -686,26 +716,47 @@ def handle_voice_transcript(data):
 
 @socketio.on('join_room')
 def on_join(data):
-    room = data['roomId']
-    user_name = data['userName']
-    is_interviewer = data.get('isInterviewer', False)
+    room = data.get('room') or data.get('interview_id')
     
-    print(f"User {user_name} joining room {room} as {'interviewer' if is_interviewer else 'interviewee'}")
+    if not room:
+        print("No room/interview_id provided")
+        return
     
-    join_room(room)
+    interview = mongo.db.interviews.find_one({'_id': ObjectId(room)})
     
-    # Store user role in room data
-    if 'room_data' not in session:
-        session['room_data'] = {}
-    session['room_data'][room] = {
-        'is_interviewer': is_interviewer,
-        'user_name': user_name
-    }
+    if interview:
+        # Calculate deadline based on interview's scheduled date and time
+        interview_datetime = datetime.combine(
+            datetime.strptime(interview['date'], '%Y-%m-%d').date(),
+            datetime.strptime(interview['time'], '%H:%M').time()
+        )
+        interview_datetime = interview_datetime.replace(tzinfo=timezone.utc)
+        
+        # Schedule room closure at interview's scheduled time
+        socketio.start_background_task(
+            target=close_room_at_deadline, 
+            room=room, 
+            deadline=interview_datetime
+        )
+
+def close_room_at_deadline(room, deadline):
+    # Wait until deadline
+    current_time = datetime.now(timezone.utc)
+    wait_time = (deadline - current_time).total_seconds()
     
-    emit('user_joined', {
-        'user': user_name,
-        'isInterviewer': is_interviewer
+    if wait_time > 0:
+        socketio.sleep(wait_time)
+    
+    # Emit room closure event
+    socketio.emit('room_closed', {
+        'reason': 'Interview time limit reached'
     }, room=room)
+    
+    # Update interview status
+    mongo.db.interviews.update_one(
+        {'_id': ObjectId(room)},
+        {'$set': {'status': 'completed'}}
+    )
 
 @socketio.on('offer')
 def handle_offer(data):
@@ -731,6 +782,65 @@ def handle_ice_candidate(data):
         'candidate': data['candidate']
     }, room=room, include_self=False)
 
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
+
+def check_and_update_interviews():
+    while True:
+        try:
+            # Get current time in UTC
+            current_time = datetime.now(timezone.utc)
+            
+            # Convert date to string for comparison
+            current_date_str = current_time.strftime('%Y-%m-%d')
+            current_time_str = current_time.strftime('%H:%M')
+            
+            # Find interviews that are past their scheduled time
+            expired_interviews = mongo.db.interviews.find({
+                'status': {'$in': ['scheduled', 'waiting_for_interviewee']},
+                '$or': [
+                    # Interviews where scheduled date is before current date
+                    {'date': {'$lt': current_date_str}},
+                    
+                    # Interviews on current date where time is before current time
+                    {
+                        'date': current_date_str,
+                        'time': {'$lt': current_time_str}
+                    }
+                ]
+            })
+            
+            # Update expired interviews
+            for interview in expired_interviews:
+                mongo.db.interviews.update_one(
+                    {'_id': interview['_id']},
+                    {'$set': {
+                        'status': 'expired',
+                        'end_reason': 'Not attended by scheduled time'
+                    }}
+                )
+                
+                print(f"Interview {interview['_id']} has expired")
+            
+        except Exception as e:
+            print(f"Error in interview expiration check: {e}")
+        
+        # Wait for 5 minutes before next check
+        time.sleep(300)
+
+def start_interview_expiration_thread():
+    thread = Thread(target=check_and_update_interviews, daemon=True)
+    thread.start()
+
+# Modify your main block or app initialization
 if __name__ == '__main__':
+    # Start the interview expiration thread
+    start_interview_expiration_thread()
+    
     port = int(os.environ.get('PORT', 5000))
     socketio.run(app, debug=True, host='127.0.0.1', port=port)

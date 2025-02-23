@@ -2,7 +2,6 @@ import subprocess
 import sys
 from threading import Thread
 import time
-import signal
 import os
 import socket
 
@@ -31,8 +30,8 @@ def run_server(script_name, suggested_port=None):
 
 def main():
     # Find free ports dynamically
-    main_port = find_free_port()
-    meet_port = find_free_port()
+    main_port = 5001
+    meet_port = 5002  # Explicitly set meet server port for consistency
 
     # Create threads for each server
     main_thread = Thread(target=run_server, args=('app.py', main_port))
@@ -46,8 +45,9 @@ def main():
         # Start main server
         main_thread.start()
 
-        # Print main server URL
+        # Print server URLs
         print(f"\nMain Server is running at: http://localhost:{main_port}")
+        print(f"Meet Server is running at: http://localhost:{meet_port}")
         print("\nPress Ctrl+C to stop the servers.\n")
 
         # Wait for both servers to complete

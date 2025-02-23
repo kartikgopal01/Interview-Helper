@@ -28,7 +28,9 @@
   >
     <div class="max-w-7xl mx-auto pt-32 px-4 sm:px-6 lg:px-8 py-8">
       <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold gradient-text">Dashboard</h1>
+        <h1 class="text-3xl font-bold gradient-text">
+          {{ current_user_email.split('@')[0].capitalize() }}'s Dashboard
+        </h1>
         <a
           href="{{ url_for('schedule_interview') }}"
           class="px-6 py-3 text-white rounded-lg bg-gradient-to-r from-blue-600 to-purple-600"

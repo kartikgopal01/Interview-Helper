@@ -96,5 +96,29 @@ def on_leave(data):
 def handle_disconnect():
     logger.info('Client disconnected')
 
+@socketio.on('offer')
+def handle_offer(data):
+    print("Handling offer")
+    room = data['roomId']
+    emit('offer', {
+        'offer': data['offer']
+    }, room=room, include_self=False)
+
+@socketio.on('answer')
+def handle_answer(data):
+    print("Handling answer")
+    room = data['roomId']
+    emit('answer', {
+        'answer': data['answer']
+    }, room=room, include_self=False)
+
+@socketio.on('ice_candidate')
+def handle_ice_candidate(data):
+    print("Handling ICE candidate")
+    room = data['roomId']
+    emit('ice_candidate', {
+        'candidate': data['candidate']
+    }, room=room, include_self=False)
+
 if __name__ == '__main__':
     socketio.run(app, port=PORT, debug=True)

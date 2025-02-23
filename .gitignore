@@ -6,5 +6,6 @@ tailwind.config.js
 .env
 
 # Flask Debug Log and pycache
+meet_server.log
 flask_debug.log
 __pycache__

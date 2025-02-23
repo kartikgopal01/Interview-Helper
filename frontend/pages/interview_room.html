@@ -10,26 +10,16 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="../assets/css/style.css" />
-    <script>
-      const isLoggedIn = "{{ 'true' if isLoggedIn else 'false' }}";
-      console.log(`Interview Room page loaded, isLoggedIn: ${isLoggedIn}`);
-    </script>
     <script src="../assets/js/navbar.js"></script>
-    <script src="/static/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/nltk@0.0.1/build/nltk.min.js"></script>
   </head>
   <body
     class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
     data-room-id="{{ interview.interview_key }}"
     data-user-name="{{ user_name }}"
     data-user-id="{{ user_id }}"
-    data-is-interviewer="{{ 'true' if is_interviewer else 'false' }}"
   >
-    <!-- Hidden input fields to pass server-side data to JavaScript -->
-    <input type="hidden" id="interview-id" value="{{ interview._id }}">
-    <input type="hidden" id="user-name" value="{{ user_name }}">
-    <input type="hidden" id="user-id" value="{{ user_id }}">
-    <input type="hidden" id="is-interviewer" value="{{ 'True' if is_interviewer else 'False' }}">
-
     <div class="max-w-7xl h-full lg:h-screen mx-auto pt-32 px-4 py-8">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Video Chat Section -->
@@ -38,85 +28,38 @@
           <div class="video-container grid grid-cols-2 gap-4">
             {% if is_interviewer %}
             <div class="local-video-wrapper relative">
-              <video
-                id="localVideo"
-                autoplay
-                muted
-                class="w-1/4 max-w-xs rounded-lg shadow-md"
-              ></video>
-              <span
-                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
-              >
+              <video id="localVideo" autoplay playsinline muted class="w-full rounded-lg"></video>
+              <span class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
                 You (Interviewer)
               </span>
             </div>
             <div class="remote-video-wrapper relative">
-              <video
-                id="remoteVideo"
-                autoplay
-                class="w-full max-w-lg rounded-lg shadow-lg"
-              ></video>
-              <span
-                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
-              >
+              <video id="remoteVideo" autoplay playsinline class="w-full rounded-lg"></video>
+              <span class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
                 Interviewee
               </span>
             </div>
             {% else %}
             <div class="remote-video-wrapper relative">
-              <video
-                id="remoteVideo"
-                autoplay
-                class="w-full max-w-lg rounded-lg shadow-lg"
-              ></video>
-              <span
-                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
-              >
+              <video id="remoteVideo" autoplay playsinline class="w-full rounded-lg"></video>
+              <span class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
                 Interviewer
               </span>
             </div>
             <div class="local-video-wrapper relative">
-              <video
-                id="localVideo"
-                autoplay
-                muted
-                class="w-full max-w-xs rounded-lg shadow-md"
-              ></video>
-              <span
-                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
-              >
+              <video id="localVideo" autoplay playsinline muted class="w-full rounded-lg"></video>
+              <span class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
                 You (Interviewee)
               </span>
             </div>
             {% endif %}
           </div>
           <div class="controls mt-4 flex justify-center space-x-4">
-            <button
-              id="toggleVideo"
-              class="px-4 py-2 rounded-xl bg-blue-600 text-white"
-            >
-              Toggle Video
-            </button>
-            <button
-              id="toggleAudio"
-              class="px-4 py-2 rounded-xl bg-blue-600 text-white"
-            >
-              Toggle Audio
-            </button>
+            <button id="toggleVideo" class="px-4 py-2 rounded-xl bg-blue-600 text-white">Toggle Video</button>
+            <button id="toggleAudio" class="px-4 py-2 rounded-xl bg-blue-600 text-white">Toggle Audio</button>
             {% if not is_interviewer %}
-            <button
-              id="startVoice"
-              class="px-4 py-2 rounded-xl bg-green-600 text-white"
-            >
-              Start Voice Answer
-            </button>
-            <button
-              id="stopVoice"
-              class="px-4 py-2 rounded-xl bg-red-600 text-white"
-              disabled
-            >
-              Stop Voice Answer
-            </button>
+            <button id="startVoice" class="px-4 py-2 rounded-xl bg-green-600 text-white">Start Voice Answer</button>
+            <button id="stopVoice" class="px-4 py-2 rounded-xl bg-red-600 text-white" disabled>Stop Voice Answer</button>
             {% endif %}
           </div>
         </div>
@@ -181,53 +124,354 @@
       <!-- Add this after the video section -->
       {% if is_interviewer %}
       <div class="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-        <h3 class="text-lg font-semibold mb-2">AI Question Suggestions</h3>
-        <div id="aiQuestions" class="space-y-2">
-          <!-- AI questions will be populated here -->
-        </div>
-        <button
-          id="getNextQuestion"
-          class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg"
-        >
-          Get Next Question
-        </button>
+          <h3 class="text-lg font-semibold mb-2">AI Question Suggestions</h3>
+          <div id="aiQuestions" class="space-y-2">
+              <!-- AI questions will be populated here -->
+          </div>
+          <button id="getNextQuestion" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg">
+              Get Next Question
+          </button>
       </div>
       {% endif %}
     </div>
-    <div id="room-status" class="hidden text-center mb-4"></div>
-    
-    <div id="notifications" class="mb-4"></div>
 
-    <!-- Messages Container -->
-    <div id="messages-container" class="h-64 overflow-y-auto border rounded mb-4 p-2">
-      <!-- Existing messages will be loaded here -->
-      {% for message in messages %}
-        <div class="mb-2 p-2 rounded 
-          {{ 'bg-blue-100 text-right' if message.user_id == user_id else 'bg-gray-100' }}">
-          <span class="font-bold">
-            {{ message.user_name }}{{ ' (You)' if message.user_id == user_id else '' }}:
-          </span>
-          <p>{{ message.message }}</p>
-        </div>
-      {% endfor %}
-    </div>
+    <script>
+      const socket = io('http://127.0.0.1:5002', {
+          transports: ['websocket'],
+          upgrade: false,
+          cors: {
+              origin: "http://127.0.0.1:5000",
+              methods: ["GET", "POST"]
+          }
+      });
+      const roomId = document.body.getAttribute('data-room-id');
+      const userName = document.body.getAttribute('data-user-name');
+      const isInterviewer = {% if is_interviewer %}true{% else %}false{% endif %};
+      let localStream;
+      let peerConnection;
 
-    <!-- Message Input -->
-    <div class="flex">
-      <input 
-        type="text" 
-        id="message-input" 
-        class="flex-grow p-2 border rounded-l" 
-        placeholder="Type your message..."
-      >
-      <button 
-        id="send-message-btn" 
-        class="bg-blue-500 text-white p-2 rounded-r"
-      >
-        Send
-      </button>
-    </div>
+      // Debug logging
+      console.log('Role:', isInterviewer ? 'Interviewer' : 'Interviewee');
 
-    <script src="../assets/js/interview_room.js"></script>
+      // Add these event listeners after socket initialization
+      socket.on('connect', () => {
+          console.log('Connected to WebSocket server');
+      });
+
+      socket.on('connect_error', (error) => {
+          console.error('WebSocket connection error:', error);
+      });
+
+      socket.on('error', (error) => {
+          console.error('Socket error:', error);
+      });
+
+      async function initializeCall() {
+        try {
+          if (!socket.connected) {
+            console.log('Waiting for socket connection...');
+            await new Promise(resolve => {
+              socket.on('connect', resolve);
+              setTimeout(resolve, 5000); // Timeout after 5 seconds
+            });
+          }
+
+          console.log('Requesting media devices...');
+          localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+          });
+          console.log('Got local stream');
+          document.getElementById('localVideo').srcObject = localStream;
+
+          // Join room with role
+          socket.emit('join_room', {
+            roomId: roomId,
+            userName: userName,
+            isInterviewer: isInterviewer
+          });
+
+          // Wait a moment before creating peer connection
+          setTimeout(() => {
+            createPeerConnection();
+          }, 1000);
+        } catch (e) {
+          console.error('Error in initializeCall:', e);
+        }
+      }
+
+      async function createPeerConnection() {
+        const configuration = {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            {
+              urls: 'turn:numb.viagenie.ca',
+              username: 'webrtc@live.com',
+              credential: 'muazkh'
+            }
+          ]
+        };
+
+        try {
+          peerConnection = new RTCPeerConnection(configuration);
+          console.log('Created peer connection');
+
+          // Add all local tracks to the peer connection
+          localStream.getTracks().forEach(track => {
+            console.log('Adding track:', track.kind);
+            peerConnection.addTrack(track, localStream);
+          });
+
+          // Handle incoming stream
+          peerConnection.ontrack = event => {
+            console.log('Received remote track:', event.track.kind);
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo.srcObject !== event.streams[0]) {
+              console.log('Setting remote stream');
+              remoteVideo.srcObject = event.streams[0];
+            }
+          };
+
+          // Handle connection state changes
+          peerConnection.onconnectionstatechange = event => {
+            console.log('Connection state:', peerConnection.connectionState);
+          };
+
+          // Handle ICE connection state changes
+          peerConnection.oniceconnectionstatechange = event => {
+            console.log('ICE connection state:', peerConnection.iceConnectionState);
+          };
+
+          // Handle ICE candidates
+          peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+              console.log('Sending ICE candidate');
+              socket.emit('ice_candidate', {
+                roomId: roomId,
+                candidate: event.candidate
+              });
+            }
+          };
+
+          // If interviewer, create and send offer
+          if (isInterviewer) {
+            console.log('Creating offer as interviewer');
+            const offer = await peerConnection.createOffer({
+              offerToReceiveAudio: true,
+              offerToReceiveVideo: true,
+              iceRestart: true
+            });
+            
+            console.log('Setting local description');
+            await peerConnection.setLocalDescription(offer);
+            
+            console.log('Sending offer');
+            socket.emit('offer', {
+              roomId: roomId,
+              offer: offer
+            });
+          }
+        } catch (e) {
+          console.error('Error creating peer connection:', e);
+        }
+      }
+
+      // Handle offer from interviewer
+      socket.on('offer', async data => {
+        try {
+          if (!isInterviewer && peerConnection) {
+            console.log('Received offer as interviewee');
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            
+            socket.emit('answer', {
+              roomId: roomId,
+              answer: answer
+            });
+          }
+        } catch (e) {
+          console.error('Error handling offer:', e);
+        }
+      });
+
+      // Handle answer from interviewee
+      socket.on('answer', async data => {
+        try {
+          if (isInterviewer && peerConnection) {
+            console.log('Received answer as interviewer');
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+          }
+        } catch (e) {
+          console.error('Error handling answer:', e);
+        }
+      });
+
+      // Handle ICE candidates
+      socket.on('ice_candidate', async data => {
+        try {
+          if (peerConnection) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+          }
+        } catch (e) {
+          console.error('Error adding ICE candidate:', e);
+        }
+      });
+
+      // Handle media controls
+      document.getElementById('toggleVideo').addEventListener('click', () => {
+        const videoTrack = localStream.getVideoTracks()[0];
+        videoTrack.enabled = !videoTrack.enabled;
+      });
+
+      document.getElementById('toggleAudio').addEventListener('click', () => {
+        const audioTrack = localStream.getAudioTracks()[0];
+        audioTrack.enabled = !audioTrack.enabled;
+      });
+
+      // Voice recognition setup
+      let recognition = null;
+      if ('webkitSpeechRecognition' in window) {
+          recognition = new webkitSpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          
+          recognition.onresult = function(event) {
+              const transcript = Array.from(event.results)
+                  .map(result => result[0])
+                  .map(result => result.transcript)
+                  .join('');
+              
+              // Send transcript to server for analysis
+              socket.emit('voice_transcript', {
+                  roomId: roomId,
+                  transcript: transcript
+              });
+          };
+      }
+
+      // Voice control buttons
+      const startVoiceBtn = document.getElementById('startVoice');
+      const stopVoiceBtn = document.getElementById('stopVoice');
+
+      if (startVoiceBtn && stopVoiceBtn) {
+          startVoiceBtn.addEventListener('click', () => {
+              if (recognition) {
+                  recognition.start();
+                  startVoiceBtn.disabled = true;
+                  stopVoiceBtn.disabled = false;
+              }
+          });
+
+          stopVoiceBtn.addEventListener('click', () => {
+              if (recognition) {
+                  recognition.stop();
+                  startVoiceBtn.disabled = false;
+                  stopVoiceBtn.disabled = true;
+              }
+          });
+      }
+
+      // AI Question handling for interviewer
+      if (document.getElementById('getNextQuestion')) {
+          document.getElementById('getNextQuestion').addEventListener('click', () => {
+              socket.emit('get_next_question', {
+                  roomId: roomId,
+                  currentContext: document.getElementById('chat-messages').innerText
+              });
+          });
+      }
+
+      // Handle AI question suggestions
+      socket.on('ai_question', data => {
+          const aiQuestions = document.getElementById('aiQuestions');
+          if (aiQuestions) {
+              const questionDiv = document.createElement('div');
+              questionDiv.className = 'p-2 bg-white dark:bg-gray-700 rounded';
+              questionDiv.innerHTML = `
+                  <p class="font-medium">${data.question}</p>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">Topics: ${data.topics.join(', ')}</p>
+              `;
+              aiQuestions.appendChild(questionDiv);
+          }
+      });
+
+      // Handle voice analysis results
+      socket.on('voice_analysis', data => {
+          const messagesDiv = document.getElementById('chat-messages');
+          const analysisDiv = document.createElement('div');
+          analysisDiv.className = 'my-2 p-2 bg-gray-100 dark:bg-gray-800 rounded';
+          analysisDiv.innerHTML = `
+              <p class="text-sm text-gray-600 dark:text-gray-400">Voice Analysis:</p>
+              <p>${data.analysis}</p>
+          `;
+          messagesDiv.appendChild(analysisDiv);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      });
+
+      // Message handling
+      const messageForm = document.getElementById('messageForm');
+      const aiForm = document.getElementById('aiForm');
+      const messagesDiv = document.getElementById('chat-messages');
+      
+      messageForm.onsubmit = (e) => {
+          e.preventDefault();
+          const input = document.getElementById('messageInput');
+          const message = input.value.trim();
+          
+          if (message) {
+              socket.emit('send_message', {
+                  roomId: roomId,
+                  message: message
+              });
+              input.value = '';
+          }
+      };
+      
+      aiForm.onsubmit = (e) => {
+          e.preventDefault();
+          const input = document.getElementById('aiPrompt');
+          const prompt = input.value.trim();
+          
+          if (prompt) {
+              socket.emit('request_ai_help', {
+                  roomId: roomId,
+                  prompt: prompt
+              });
+              input.value = '';
+          }
+      };
+      
+      socket.on('new_message', data => {
+          addMessage(data.user_name, data.message);
+      });
+      
+      socket.on('ai_response', data => {
+          addMessage('AI Assistant', data.message, true);
+      });
+      
+      function addMessage(userName, message, isAI = false) {
+          const div = document.createElement('div');
+          div.className = `message ${isAI ? 'ai-message' : ''}`;
+          div.innerHTML = `<strong>${userName}:</strong> ${message}`;
+          messagesDiv.appendChild(div);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      // Update the socket event handlers
+      socket.on('user_joined', data => {
+        console.log('User joined:', data);
+        if (data.connectionCount === 2) {
+          console.log('Both users present, starting connection');
+          if (isInterviewer) {
+            createPeerConnection();
+          }
+        }
+      });
+
+      // Initialize call when page loads
+      initializeCall();
+    </script>
   </body>
 </html>

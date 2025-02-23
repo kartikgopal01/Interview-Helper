@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const confirmPasswordInput = document.getElementById("confirmPassword");
   const togglePasswordBtn = document.getElementById("togglePassword");
   const logoElement = document.querySelector(".logo-pulse");
+  const loginContainer = document.querySelector(".login-container"); // Assuming you have a container for the entire login form
 
   // Add any additional initialization logic from the HTML script here
   togglePasswordBtn.addEventListener("click", () => {
@@ -39,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
     alertDiv.classList.add(
       "alert",
       "fixed",
-      "top-2",
+      "top-32",
       "left-1/2",
       "transform",
       "-translate-x-1/2",
@@ -69,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Remove alert after 3 seconds
     setTimeout(() => {
       alertDiv.remove();
-    }, 3000);
+    }, 2000);
   }
 
   // Create loading overlay
@@ -105,6 +106,23 @@ document.addEventListener("DOMContentLoaded", () => {
     // Trigger reflow
     overlay.offsetHeight;
     overlay.style.opacity = "1";
+
+    return overlay;
+  }
+
+  function showLoadingOverlay() {
+    const existingOverlay = document.querySelector(".fixed.inset-0.bg-white");
+    if (existingOverlay) {
+      return existingOverlay;
+    }
+
+    const overlay = createLoadingOverlay();
+
+    // Hide navbar
+    const navbar = document.querySelector("nav");
+    if (navbar) {
+      navbar.style.display = "none";
+    }
 
     return overlay;
   }
@@ -249,8 +267,13 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Server Response:", result);
 
       if (response.ok) {
-        // Check response status
         if (result.success) {
+          // Completely remove or hide the entire login container
+          if (loginContainer) {
+            loginContainer.style.display = "none";
+            loginContainer.innerHTML = ""; // Optional: clear the contents
+          }
+
           // Show success alert
           showAlert(result.message, "success");
 
@@ -258,19 +281,18 @@ document.addEventListener("DOMContentLoaded", () => {
           console.log("Redirect URL:", result.redirect);
 
           // Create loading overlay
-          const loadingOverlay = createLoadingOverlay();
+          const loadingOverlay = showLoadingOverlay();
 
           // Redirect after a short delay
           setTimeout(() => {
-            // Attempt multiple redirection methods
             if (result.redirect) {
               console.log("Attempting to redirect to:", result.redirect);
-              window.location.href = result.redirect; // Use href instead of replace
+              window.location.href = result.redirect;
             } else {
               console.log("Redirecting to default dashboard");
               window.location.href = "/dashboard";
             }
-          }, 1500);
+          }, 3000);
         } else {
           // Show error alert
           showAlert(result.message);
@@ -305,4 +327,7 @@ document.addEventListener("DOMContentLoaded", () => {
       logoElement.classList.remove("animate-pulse");
     }
   };
+
+  // Call pulseLogo at the end of the event listener
+  pulseLogo();
 });

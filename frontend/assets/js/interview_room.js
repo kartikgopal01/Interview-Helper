@@ -1,133 +1,88 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Get interview details from the page
-  const interviewId = document.getElementById("interview-id").value;
-  const userName = document.getElementById("user-name").value;
-  const userId = document.getElementById("user-id").value;
-  const isInterviewer =
-    document.getElementById("is-interviewer").value === "True";
+  // Get connection details from data attributes
+  const roomId = document.body.dataset.roomId;
+  const userName = document.body.dataset.userName;
+  const userId = document.body.dataset.userId;
+  const isInterviewer = document.body.dataset.isInterviewer === 'true';
 
-  // Dynamic socket connection
-  const socket = io({
-    query: {
-      interview_id: interviewId,
-      user_id: userId,
-      user_name: userName,
-      is_interviewer: isInterviewer,
-    },
-  });
-
-  // Join room function
-  function join_room(room) {
-    console.log(`Attempting to join room: ${room}`);
-    socket.emit("join_room", {
-      room: room,
-      user_id: userId,
-      user_name: userName,
-      is_interviewer: isInterviewer,
+  // Initialize socket connection
+  if (window.socketHandler) {
+    window.socketHandler.initialize({
+      roomId,
+      userName,
+      userId,
+      isInterviewer
     });
   }
 
-  // Call join_room when the page loads
-  join_room(interviewId);
-
-  // Socket event listeners
-  socket.on("connect", () => {
-    console.log("Connected to WebSocket server");
-    // Confirm room join
-    socket.emit("join_room", {
-      room: interviewId,
-      user_id: userId,
-      user_name: userName,
-      is_interviewer: isInterviewer,
-    });
-  });
-
-  socket.on("room_joined", (data) => {
-    console.log("Successfully joined room:", data);
-    // Update UI to show user has joined
-    const statusElement = document.getElementById("room-status");
-    if (statusElement) {
-      statusElement.textContent = `${userName} has joined the interview room`;
-      statusElement.classList.remove("hidden");
+  // Wait for socket to be initialized
+  const waitForSocket = () => {
+    const socket = window.socketHandler?.getSocket();
+    if (!socket) {
+      setTimeout(waitForSocket, 100);
+      return;
     }
-  });
 
-  socket.on("user_joined", (data) => {
-    console.log("Another user joined:", data);
-    // Notify when another user joins
-    const notificationElement = document.getElementById("notifications");
-    if (notificationElement) {
-      const notification = document.createElement("div");
-      notification.textContent = `${data.user_name} has joined the interview room`;
-      notification.classList.add("text-green-500", "mb-2");
-      notificationElement.appendChild(notification);
-    }
-  });
+    // Socket is available, set up event handlers
+    setupEventHandlers(socket);
+  };
 
-  // Message sending functionality
-  const messageInput = document.getElementById("message-input");
-  const sendMessageBtn = document.getElementById("send-message-btn");
-  const messagesContainer = document.getElementById("messages-container");
+  // Start waiting for socket
+  waitForSocket();
+});
 
-  sendMessageBtn.addEventListener("click", sendMessage);
-  messageInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      sendMessage();
-    }
-  });
+function setupEventHandlers(socket) {
+  // Message form handling
+  const messageForm = document.getElementById("messageForm");
+  const messageInput = document.getElementById("messageInput");
+  const messagesDiv = document.getElementById("chat-messages");
 
-  function sendMessage() {
+  messageForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
     const message = messageInput.value.trim();
     if (message) {
       socket.emit("send_message", {
-        room: interviewId,
+        room: document.body.dataset.roomId,
         message: message,
-        user_id: userId,
-        user_name: userName,
+        user_id: document.body.dataset.userId,
+        user_name: document.body.dataset.userName
       });
       messageInput.value = "";
     }
-  }
+  });
 
-  // Receive messages
+  // AI form handling
+  const aiForm = document.getElementById("aiForm");
+  const aiPrompt = document.getElementById("aiPrompt");
+
+  aiForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const prompt = aiPrompt.value.trim();
+    if (prompt) {
+      socket.emit("request_ai_help", {
+        roomId: document.body.dataset.roomId,
+        prompt: prompt
+      });
+      aiPrompt.value = "";
+    }
+  });
+
+  // Socket event listeners
   socket.on("receive_message", (data) => {
-    const messageElement = document.createElement("div");
-    messageElement.classList.add("mb-2", "p-2", "rounded");
-
-    if (data.user_id === userId) {
-      // Own message
-      messageElement.classList.add("bg-blue-100", "text-right");
-      messageElement.innerHTML = `
-        <span class="font-bold">${data.user_name} (You):</span>
-        <p>${data.message}</p>
-      `;
-    } else {
-      // Other user's message
-      messageElement.classList.add("bg-gray-100");
-      messageElement.innerHTML = `
-        <span class="font-bold">${data.user_name}:</span>
-        <p>${data.message}</p>
-      `;
-    }
-
-    messagesContainer.appendChild(messageElement);
-    // Auto-scroll to bottom
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    addMessage(data.user_name, data.message);
   });
 
-  // Handle disconnection
-  socket.on("disconnect", () => {
-    console.log("Disconnected from WebSocket server");
-    const statusElement = document.getElementById("room-status");
-    if (statusElement) {
-      statusElement.textContent = "Connection lost. Reconnecting...";
-      statusElement.classList.add("text-red-500");
-    }
+  socket.on("ai_response", (data) => {
+    addMessage("AI Assistant", data.message, true);
   });
 
-  // Reconnection handling
-  socket.on("reconnect", () => {
-    console.log("Reconnected to WebSocket server");
-    join_room(interviewId);
-  });
-});
+  // Message display helper
+  function addMessage(userName, message, isAI = false) {
+    const div = document.createElement("div");
+    div.classList.add("mb-2");
+    if (isAI) div.classList.add("text-green-600");
+    div.innerHTML = `<strong>${userName}:</strong> ${message}`;
+    messagesDiv?.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+}
