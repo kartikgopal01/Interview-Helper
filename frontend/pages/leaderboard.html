@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programming Leaderboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-text {
+            background: linear-gradient(to right, #2563eb, #9333ea);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .gradient-bg {
+            background: linear-gradient(to right, #2563eb, #9333ea);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="max-w-4xl mx-auto p-6 space-y-6">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold mb-4">
+                Programming <span class="gradient-text">Leaderboard</span>
+            </h2>
+            <p class="text-gray-400">Top performers across different programming languages</p>
+        </div>
+
+        <!-- Language Filter Buttons -->
+        <div class="flex flex-wrap gap-2 justify-center mb-6">
+            <button class="gradient-bg px-4 py-2 rounded-xl font-medium transition-all duration-300 text-white">
+                All
+            </button>
+            <button class="bg-gray-800 px-4 py-2 rounded-xl font-medium transition-all duration-300 text-gray-400 hover:bg-gray-700">
+                Python
+            </button>
+            <button class="bg-gray-800 px-4 py-2 rounded-xl font-medium transition-all duration-300 text-gray-400 hover:bg-gray-700">
+                Java
+            </button>
+            <button class="bg-gray-800 px-4 py-2 rounded-xl font-medium transition-all duration-300 text-gray-400 hover:bg-gray-700">
+                C++
+            </button>
+            <button class="bg-gray-800 px-4 py-2 rounded-xl font-medium transition-all duration-300 text-gray-400 hover:bg-gray-700">
+                C
+            </button>
+        </div>
+
+        <!-- Leaderboard Table -->
+        <div class="bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-700">
+                            <th class="px-6 py-4 text-left text-sm font-semibold text-gray-300">Rank</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold text-gray-300">Name</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold text-gray-300">Language</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold text-gray-300">Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 1st Place -->
+                        <tr class="border-t border-gray-700 hover:bg-gray-700 transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 15l-8 4v-4l8-4 8 4v4l-8-4z M12 7l-8 4 8 4 8-4-8-4z"/>
+                                    </svg>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 font-medium">John Doe</td>
+                            <td class="px-6 py-4">
+                                <span class="px-3 py-1 rounded-full text-sm bg-gray-700">Python</span>
+                            </td>
+                            <td class="px-6 py-4 font-semibold">985</td>
+                        </tr>
+                        <!-- 2nd Place -->
+                        <tr class="border-t border-gray-700 hover:bg-gray-700 transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 15l-8 4v-4l8-4 8 4v4l-8-4z M12 7l-8 4 8 4 8-4-8-4z"/>
+                                    </svg>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 font-medium">Alice Smith</td>
+                            <td class="px-6 py-4">
+                                <span class="px-3 py-1 rounded-full text-sm bg-gray-700">Java</span>
+                            </td>
+                            <td class="px-6 py-4 font-semibold">945</td>
+                        </tr>
+                        <!-- 3rd Place -->
+                        <tr class="border-t border-gray-700 hover:bg-gray-700 transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 15l-8 4v-4l8-4 8 4v4l-8-4z M12 7l-8 4 8 4 8-4-8-4z"/>
+                                    </svg>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 font-medium">Bob Johnson</td>
+                            <td class="px-6 py-4">
+                                <span class="px-3 py-1 rounded-full text-sm bg-gray-700">C++</span>
+                            </td>
+                            <td class="px-6 py-4 font-semibold">920</td>
+                        </tr>
+                        <!-- Additional Entries -->
+                        <tr class="border-t border-gray-700 hover:bg-gray-700 transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-5 h-5 flex items-center justify-center text-gray-500">4</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 font-medium">Emma Wilson</td>
+                            <td class="px-6 py-4">
+                                <span class="px-3 py-1 rounded-full text-sm bg-gray-700">Python</span>
+                            </td>
+                            <td class="px-6 py-4 font-semibold">890</td>
+                        </tr>
+                        <tr class="border-t border-gray-700 hover:bg-gray-700 transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-5 h-5 flex items-center justify-center text-gray-500">5</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 font-medium">Mike Brown</td>
+                            <td class="px-6 py-4">
+                                <span class="px-3 py-1 rounded-full text-sm bg-gray-700">Java</span>
+                            </td>
+                            <td class="px-6 py-4 font-semibold">875</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
