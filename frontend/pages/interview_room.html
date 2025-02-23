@@ -20,119 +20,364 @@
     data-user-name="{{ user_name }}"
     data-user-id="{{ user_id }}"
   >
-    <div class="max-w-7xl h-full lg:h-screen mx-auto pt-32 px-4 py-8">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="max-w-[90%] h-screen lg:h-screen mx-auto pt-32 px-4 py-8">
+      <div class="grid grid-cols-1 gap-6 h-full">
         <!-- Video Chat Section -->
-        <div class="glassmorphism rounded-2xl p-6 shadow-2xl">
-          <h2 class="text-2xl font-bold mb-4 gradient-text">Video Call</h2>
-          <div class="video-container grid grid-cols-2 gap-4">
+        <div class="glassmorphism rounded-2xl p-6 shadow-2xl flex flex-col">
+          <h2 class="text-2xl font-bold mb-4 gradient-text flex-shrink-0">
+            Video Call
+          </h2>
+          <div class="video-container grid grid-cols-2 gap-4 flex-grow">
             {% if is_interviewer %}
             <div class="local-video-wrapper relative">
-              <video id="localVideo" autoplay playsinline muted class="w-full rounded-lg"></video>
-              <span class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
+              <video
+                id="localVideo"
+                autoplay
+                muted
+                class="w-full rounded-lg"
+              ></video>
+              <span
+                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
+              >
                 You (Interviewer)
               </span>
             </div>
             <div class="remote-video-wrapper relative">
-              <video id="remoteVideo" autoplay playsinline class="w-full rounded-lg"></video>
-              <span class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
+              <video
+                id="remoteVideo"
+                autoplay
+                class="w-full rounded-lg"
+              ></video>
+              <span
+                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
+              >
                 Interviewee
               </span>
             </div>
             {% else %}
-            <div class="remote-video-wrapper relative">
-              <video id="remoteVideo" autoplay playsinline class="w-full rounded-lg"></video>
-              <span class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
-                Interviewer
-              </span>
-            </div>
-            <div class="local-video-wrapper relative">
-              <video id="localVideo" autoplay playsinline muted class="w-full rounded-lg"></video>
-              <span class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
-                You (Interviewee)
-              </span>
-            </div>
-            {% endif %}
-          </div>
-          <div class="controls mt-4 flex justify-center space-x-4">
-            <button id="toggleVideo" class="px-4 py-2 rounded-xl bg-blue-600 text-white">Toggle Video</button>
-            <button id="toggleAudio" class="px-4 py-2 rounded-xl bg-blue-600 text-white">Toggle Audio</button>
-            {% if not is_interviewer %}
-            <button id="startVoice" class="px-4 py-2 rounded-xl bg-green-600 text-white">Start Voice Answer</button>
-            <button id="stopVoice" class="px-4 py-2 rounded-xl bg-red-600 text-white" disabled>Stop Voice Answer</button>
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Chat and AI Assistant Section -->
-        <div class="glassmorphism rounded-2xl p-6 shadow-2xl">
-          <h2 class="text-2xl font-bold mb-4 gradient-text">
-            Chat & AI Assistant
-          </h2>
-          <div class="h-96 flex flex-col">
-            <!-- Chat Messages -->
             <div
-              id="chat-messages"
-              class="flex-1 overflow-y-auto mb-4 p-4 border rounded bg-white dark:bg-gray-800"
+              class="remote-video-wrapper relative col-span-2 h-full w-full flex"
             >
-              {% for message in messages %}
-              <div
-                class="mb-2 {% if message.user_id == 'AI' %}text-green-600{% endif %}"
-              >
-                <strong>{{ message.user_name }}:</strong> {{ message.content }}
-              </div>
-              {% endfor %}
-            </div>
-
-            <!-- Message Input -->
-            <form id="messageForm" class="mb-2">
-              <div class="flex space-x-2">
-                <input
-                  type="text"
-                  id="messageInput"
-                  class="flex-1 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Type your message..."
-                />
-                <button
-                  type="submit"
-                  class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+              <div class="relative flex-grow">
+                <video
+                  id="remoteVideo"
+                  autoplay
+                  class="w-full h-full object-cover"
+                ></video>
+                <span
+                  class="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded z-10"
                 >
-                  Send
+                  Interviewer
+                </span>
+
+                <!-- Local Video in Bottom Right Corner -->
+                <div
+                  class="absolute bottom-4 right-4 w-1/4 max-w-[250px] min-w-[150px] z-20"
+                >
+                  <div class="relative">
+                    <video
+                      id="localVideo"
+                      autoplay
+                      muted
+                      class="w-full h-full rounded-lg shadow-lg border-2 border-white"
+                    ></video>
+                    <span
+                      class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs"
+                    >
+                      You
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Vertical Buttons Container -->
+              <div
+                class="w-16 my-auto bg-black/30 flex flex-col justify-center space-y-4 p-2 border-neutral-950 rounded-3xl"
+              >
+                <button
+                  title="Start Voice"
+                  id="startVoice"
+                  class="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors flex items-center justify-center"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  title="Stop Voice"
+                  id="stopVoice"
+                  class="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors flex items-center justify-center"
+                  disabled
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                      clip-rule="evenodd"
+                    />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+                    />
+                  </svg>
+                </button>
+                <button
+                  title="Toggle Video"
+                  id="toggleVideoInterviewee"
+                  class="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors flex items-center justify-center"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  title="Toggle Audio"
+                  id="toggleAudioInterviewee"
+                  class="bg-gray-500 text-white p-2 rounded-full hover:bg-gray-600 transition-colors flex items-center justify-center"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                    />
+                  </svg>
                 </button>
               </div>
-            </form>
-
-            <!-- AI Assistant -->
-            <form id="aiForm" class="mb-2">
-              <input
-                type="text"
-                id="aiPrompt"
-                class="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 mb-2"
-                placeholder="Ask AI Assistant..."
-              />
-              <button
-                type="submit"
-                class="w-full px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold"
+            </div>
+            {% endif %}
+          </div>
+          <div
+            class="controls mt-4 grid grid-cols-2 gap-4 max-w-md mx-auto flex-shrink-0 {% if not is_interviewer %}hidden{% endif %}"
+          >
+            <button
+              id="toggleVideoInterviewer"
+              class="px-4 py-3 rounded-xl bg-blue-600 text-white flex items-center justify-center space-x-2 transition-all duration-300 hover:bg-blue-700"
+            >
+              <svg
+                id="videoIcon"
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-6 w-6 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                Ask AI
-              </button>
-            </form>
+                <!-- Active Video Icon -->
+                <path
+                  id="videoActiveIcon"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+                <!-- Muted Video Icon -->
+                <path
+                  id="videoMutedIcon"
+                  class="hidden"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
+                />
+                <!-- Diagonal Cross for Muted -->
+                <line
+                  id="videoMutedCross"
+                  class="hidden"
+                  x1="3"
+                  y1="3"
+                  x2="21"
+                  y2="21"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+              </svg>
+              <span id="videoToggleText" class="text-sm">Disable Video</span>
+            </button>
+            <button
+              id="toggleAudioInterviewer"
+              class="px-4 py-3 rounded-xl bg-blue-600 text-white flex items-center justify-center space-x-2 transition-all duration-300 hover:bg-blue-700"
+            >
+              <svg
+                id="audioIcon"
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-6 w-6 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <!-- Active Audio Icon -->
+                <path
+                  id="audioActiveIcon"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                />
+                <!-- Muted Audio Icon -->
+                <path
+                  id="audioMutedIcon"
+                  class="hidden"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                  clip-rule="evenodd"
+                />
+                <!-- Mute Indicator -->
+                <path
+                  id="audioMuteCross"
+                  class="hidden"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+                />
+              </svg>
+              <span id="audioToggleText" class="text-sm">Mute Audio</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      <!-- Add this after the video section -->
-      {% if is_interviewer %}
-      <div class="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-          <h3 class="text-lg font-semibold mb-2">AI Question Suggestions</h3>
-          <div id="aiQuestions" class="space-y-2">
+        {% if is_interviewer %}
+        <!-- AI Assistant and Question Suggestions Section -->
+        <div
+          class="glassmorphism rounded-2xl p-6 shadow-2xl flex flex-col overflow-hidden"
+        >
+          <h2 class="text-2xl font-bold mb-4 gradient-text flex-shrink-0">
+            AI Interview Assistant
+          </h2>
+
+          <div class="flex-grow overflow-y-auto">
+            <div id="aiQuestions" class="space-y-4 pr-2">
               <!-- AI questions will be populated here -->
+              <div
+                class="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-center"
+              >
+                <p class="text-gray-600 dark:text-gray-400">
+                  Click "Get Questions" to receive AI-powered interview
+                  suggestions
+                </p>
+              </div>
+            </div>
           </div>
-          <button id="getNextQuestion" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg">
-              Get Next Question
-          </button>
+
+          <div class="mt-4 grid grid-cols-2 gap-4 flex-shrink-0">
+            <button
+              id="getInterviewDetails"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Set Interview Details
+            </button>
+            <button
+              id="getNextQuestion"
+              class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Get Questions
+            </button>
+          </div>
+
+          <!-- Interview Details Modal -->
+          <div
+            id="interviewDetailsModal"
+            class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center"
+          >
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg w-96">
+              <h3 class="text-xl font-bold mb-4">Interview Details</h3>
+              <div class="space-y-4">
+                <div>
+                  <label class="block mb-2">Role</label>
+                  <select
+                    title="Interview Role"
+                    id="interviewRole"
+                    class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700"
+                  >
+                    <option value="frontend">Frontend Developer</option>
+                    <option value="backend">Backend Developer</option>
+                    <option value="fullstack">Full Stack Developer</option>
+                    <option value="mobile">Mobile Developer</option>
+                    <option value="data_science">Data Scientist</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block mb-2">Experience Level</label>
+                  <select
+                    title="Experience Level"
+                    id="experienceLevel"
+                    class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700"
+                  >
+                    <option value="entry">Entry Level</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="senior">Senior</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block mb-2">Primary Technology</label>
+                  <input
+                    type="text"
+                    id="primaryTechnology"
+                    placeholder="e.g., Java, Python, React"
+                    class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700"
+                  />
+                </div>
+              </div>
+              <div class="mt-6 flex justify-end space-x-4">
+                <button
+                  id="cancelInterviewDetails"
+                  class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="saveInterviewDetails"
+                  class="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
     </div>
 
     <script>
@@ -262,10 +507,10 @@
               offerToReceiveVideo: true,
               iceRestart: true
             });
-            
+
             console.log('Setting local description');
             await peerConnection.setLocalDescription(offer);
-            
+
             console.log('Sending offer');
             socket.emit('offer', {
               roomId: roomId,
@@ -285,7 +530,7 @@
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-            
+
             socket.emit('answer', {
               roomId: roomId,
               answer: answer
@@ -319,16 +564,96 @@
         }
       });
 
-      // Handle media controls
-      document.getElementById('toggleVideo').addEventListener('click', () => {
-        const videoTrack = localStream.getVideoTracks()[0];
-        videoTrack.enabled = !videoTrack.enabled;
-      });
+      // Video Toggle Logic for Interviewer
+      const toggleVideoInterviewer = document.getElementById('toggleVideoInterviewer');
+      if (toggleVideoInterviewer) {
+          toggleVideoInterviewer.addEventListener('click', () => {
+              const videoTrack = localStream.getVideoTracks()[0];
+              videoTrack.enabled = !videoTrack.enabled;
 
-      document.getElementById('toggleAudio').addEventListener('click', () => {
-        const audioTrack = localStream.getAudioTracks()[0];
-        audioTrack.enabled = !audioTrack.enabled;
-      });
+              const activeIcon = document.getElementById('videoActiveIcon');
+              const mutedIcon = document.getElementById('videoMutedIcon');
+              const mutedCross = document.getElementById('videoMutedCross');
+
+              if (videoTrack.enabled) {
+                  toggleVideoInterviewer.classList.remove('bg-red-600');
+                  toggleVideoInterviewer.classList.add('bg-blue-600');
+
+                  activeIcon.classList.remove('hidden');
+                  mutedIcon.classList.add('hidden');
+                  mutedCross.classList.add('hidden');
+
+                  videoToggleText.textContent = 'Disable Video';
+              } else {
+                  toggleVideoInterviewer.classList.remove('bg-blue-600');
+                  toggleVideoInterviewer.classList.add('bg-red-600');
+
+                  activeIcon.classList.add('hidden');
+                  mutedIcon.classList.remove('hidden');
+                  mutedCross.classList.remove('hidden');
+
+                  videoToggleText.textContent = 'Enable Video';
+              }
+          });
+      }
+
+      // Audio Toggle Logic for Interviewer
+      const toggleAudioInterviewer = document.getElementById('toggleAudioInterviewer');
+      if (toggleAudioInterviewer) {
+          toggleAudioInterviewer.addEventListener('click', () => {
+              const audioTrack = localStream.getAudioTracks()[0];
+              audioTrack.enabled = !audioTrack.enabled;
+
+              const activeIcon = document.getElementById('audioActiveIcon');
+              const mutedIcon = document.getElementById('audioMutedIcon');
+              const muteCross = document.getElementById('audioMuteCross');
+
+              if (audioTrack.enabled) {
+                  toggleAudioInterviewer.classList.remove('bg-red-600');
+                  toggleAudioInterviewer.classList.add('bg-blue-600');
+
+                  activeIcon.classList.remove('hidden');
+                  mutedIcon.classList.add('hidden');
+                  muteCross.classList.add('hidden');
+
+                  audioToggleText.textContent = 'Mute Audio';
+              } else {
+                  toggleAudioInterviewer.classList.remove('bg-blue-600');
+                  toggleAudioInterviewer.classList.add('bg-red-600');
+
+                  activeIcon.classList.add('hidden');
+                  mutedIcon.classList.remove('hidden');
+                  muteCross.classList.remove('hidden');
+
+                  audioToggleText.textContent = 'Unmute Audio';
+              }
+          });
+      }
+
+      // Video Toggle Logic for Interviewee
+      const toggleVideoInterviewee = document.getElementById('toggleVideoInterviewee');
+      if (toggleVideoInterviewee) {
+          toggleVideoInterviewee.addEventListener('click', () => {
+              const localVideo = document.getElementById('localVideo');
+              localVideo.style.display = localVideo.style.display === 'none' ? 'block' : 'none';
+
+              toggleVideoInterviewee.classList.toggle('bg-red-600');
+              toggleVideoInterviewee.classList.toggle('bg-blue-600');
+          });
+      }
+
+      // Audio Toggle Logic for Interviewee
+      const toggleAudioInterviewee = document.getElementById('toggleAudioInterviewee');
+      if (toggleAudioInterviewee) {
+          toggleAudioInterviewee.addEventListener('click', () => {
+              const localVideo = document.getElementById('localVideo');
+              const audioTrack = localVideo.srcObject.getAudioTracks()[0];
+              audioTrack.enabled = !audioTrack.enabled;
+
+              toggleAudioInterviewee.classList.toggle('bg-red-600');
+              toggleAudioInterviewee.classList.toggle('bg-blue-600');
+          });
+      }
 
       // Voice recognition setup
       let recognition = null;
@@ -336,13 +661,13 @@
           recognition = new webkitSpeechRecognition();
           recognition.continuous = true;
           recognition.interimResults = true;
-          
+
           recognition.onresult = function(event) {
               const transcript = Array.from(event.results)
                   .map(result => result[0])
                   .map(result => result.transcript)
                   .join('');
-              
+
               // Send transcript to server for analysis
               socket.emit('voice_transcript', {
                   roomId: roomId,
@@ -376,25 +701,31 @@
       // AI Question handling for interviewer
       if (document.getElementById('getNextQuestion')) {
           document.getElementById('getNextQuestion').addEventListener('click', () => {
-              socket.emit('get_next_question', {
+              socket.emit('get_ai_questions', {
                   roomId: roomId,
-                  currentContext: document.getElementById('chat-messages').innerText
+                  interviewDetails: interviewDetails,
+                  currentContext: document.getElementById('chat-messages')?.innerText || ''
               });
           });
       }
 
       // Handle AI question suggestions
-      socket.on('ai_question', data => {
+      socket.on('ai_questions', data => {
           const aiQuestions = document.getElementById('aiQuestions');
-          if (aiQuestions) {
+          aiQuestions.innerHTML = ''; // Clear previous questions
+
+          data.questions.forEach(question => {
               const questionDiv = document.createElement('div');
-              questionDiv.className = 'p-2 bg-white dark:bg-gray-700 rounded';
+              questionDiv.className = 'p-4 bg-white dark:bg-gray-700 rounded-lg';
               questionDiv.innerHTML = `
-                  <p class="font-medium">${data.question}</p>
-                  <p class="text-sm text-gray-600 dark:text-gray-400">Topics: ${data.topics.join(', ')}</p>
+                  <p class="font-medium text-lg mb-2">${question.text}</p>
+                  <div class="text-sm text-gray-600 dark:text-gray-400 flex justify-between">
+                      <span>Difficulty: ${question.difficulty}</span>
+                      <span>Topic: ${question.topic}</span>
+                  </div>
               `;
               aiQuestions.appendChild(questionDiv);
-          }
+          });
       });
 
       // Handle voice analysis results
@@ -414,12 +745,12 @@
       const messageForm = document.getElementById('messageForm');
       const aiForm = document.getElementById('aiForm');
       const messagesDiv = document.getElementById('chat-messages');
-      
+
       messageForm.onsubmit = (e) => {
           e.preventDefault();
           const input = document.getElementById('messageInput');
           const message = input.value.trim();
-          
+
           if (message) {
               socket.emit('send_message', {
                   roomId: roomId,
@@ -428,12 +759,12 @@
               input.value = '';
           }
       };
-      
+
       aiForm.onsubmit = (e) => {
           e.preventDefault();
           const input = document.getElementById('aiPrompt');
           const prompt = input.value.trim();
-          
+
           if (prompt) {
               socket.emit('request_ai_help', {
                   roomId: roomId,
@@ -442,15 +773,15 @@
               input.value = '';
           }
       };
-      
+
       socket.on('new_message', data => {
           addMessage(data.user_name, data.message);
       });
-      
+
       socket.on('ai_response', data => {
           addMessage('AI Assistant', data.message, true);
       });
-      
+
       function addMessage(userName, message, isAI = false) {
           const div = document.createElement('div');
           div.className = `message ${isAI ? 'ai-message' : ''}`;
@@ -472,6 +803,68 @@
 
       // Initialize call when page loads
       initializeCall();
+
+      // Add to existing script or create a new script block
+      {% if is_interviewer %}
+      let interviewDetails = {
+          role: 'frontend',
+          experienceLevel: 'intermediate',
+          primaryTechnology: ''
+      };
+
+      // Interview Details Modal Logic
+      const interviewDetailsModal = document.getElementById('interviewDetailsModal');
+      const getInterviewDetailsBtn = document.getElementById('getInterviewDetails');
+      const cancelInterviewDetailsBtn = document.getElementById('cancelInterviewDetails');
+      const saveInterviewDetailsBtn = document.getElementById('saveInterviewDetails');
+
+      getInterviewDetailsBtn.addEventListener('click', () => {
+          interviewDetailsModal.classList.remove('hidden');
+      });
+
+      cancelInterviewDetailsBtn.addEventListener('click', () => {
+          interviewDetailsModal.classList.add('hidden');
+      });
+
+      saveInterviewDetailsBtn.addEventListener('click', () => {
+          interviewDetails.role = document.getElementById('interviewRole').value;
+          interviewDetails.experienceLevel = document.getElementById('experienceLevel').value;
+          interviewDetails.primaryTechnology = document.getElementById('primaryTechnology').value;
+
+          interviewDetailsModal.classList.add('hidden');
+
+          // Optional: You might want to emit these details to the server or update UI
+          console.log('Interview Details Saved:', interviewDetails);
+      });
+
+      // Get Next Question Logic
+      document.getElementById('getNextQuestion').addEventListener('click', () => {
+          socket.emit('get_ai_questions', {
+              roomId: roomId,
+              interviewDetails: interviewDetails,
+              currentContext: document.getElementById('chat-messages')?.innerText || ''
+          });
+      });
+
+      // Handle AI question suggestions
+      socket.on('ai_questions', data => {
+          const aiQuestions = document.getElementById('aiQuestions');
+          aiQuestions.innerHTML = ''; // Clear previous questions
+
+          data.questions.forEach(question => {
+              const questionDiv = document.createElement('div');
+              questionDiv.className = 'p-4 bg-white dark:bg-gray-700 rounded-lg';
+              questionDiv.innerHTML = `
+                  <p class="font-medium text-lg mb-2">${question.text}</p>
+                  <div class="text-sm text-gray-600 dark:text-gray-400 flex justify-between">
+                      <span>Difficulty: ${question.difficulty}</span>
+                      <span>Topic: ${question.topic}</span>
+                  </div>
+              `;
+              aiQuestions.appendChild(questionDiv);
+          });
+      });
+      {% endif %}
     </script>
   </body>
 </html>

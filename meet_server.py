@@ -48,7 +48,7 @@ socketio = SocketIO(
     path='socket.io'
 )
 
-# Add this near the top of the file, before any function that uses connections
+# Add this near the top of the file, after imports
 connections = {}
 
 @app.route('/socket-test')
@@ -140,6 +140,5 @@ if __name__ == '__main__':
         app, 
         debug=True, 
         host='0.0.0.0',
-        port=PORT,
-        allow_unsafe_werkzeug=True
+        port=PORT
     ) 
