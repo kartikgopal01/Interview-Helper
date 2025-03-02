@@ -9,3 +9,27 @@ tailwind.config.js
 meet_server.log
 flask_debug.log
 __pycache__
+
+# Ollama files
+ollama.exe
+ollama-windows-amd64.zip
+models/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+
+# Virtual Environment
+venv/
+env/
+.env/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+

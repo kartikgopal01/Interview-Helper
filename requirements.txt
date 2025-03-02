@@ -1,49 +1,59 @@
 # Core Flask Ecosystem
-flask==2.0.3
-flask-login==0.5.0
-flask-pymongo==2.3.0
-werkzeug==2.0.3
+flask
+flask-login
+flask-pymongo
+werkzeug
 
 # Database
-pymongo==4.6.1
+pymongo
 
 # Authentication & Security
 python-dotenv
-passlib==1.7.4
-
-# AI Integration
-google-generativeai
+passlib
 
 # SSL and Network
-pyopenssl==24.0.0
+pyopenssl
 
 # Development & Debugging
-gunicorn==21.2.0
+gunicorn
 
 # Environment & Package Management
-pip==23.3.2
-setuptools==69.0.3
+pip
+setuptools
 
 # Optional but Recommended
-requests==2.31.0
-bson==0.5.10
+requests
 
 # Testing
-pytest==7.4.4
+pytest
 
 # Additional dependencies
 dnspython
-flask-cors==4.0.0
+flask-cors
 
-# WebRTC and WebSocket dependencies
-eventlet==0.31.0
-flask-socketio==4.3.1
-python-engineio==4.8.0
-python-socketio==5.10.0
-gevent==23.9.1
-gevent-websocket==0.10.1
+# WebSocket and Async dependencies
+flask-socketio
+python-engineio
+python-socketio
+gevent
+gevent-websocket
+simple-websocket
 
-# Voice Recognition and NLP
-nltk==3.8.1
-speechrecognition==3.10.0
-PyAudio
+# LangChain and AI dependencies
+langchain
+langchain-community
+langchain-core
+pydantic
+psutil
+
+# Gemini API
+google-generativeai
+langchain-google-genai
+
+# Vector search and embeddings
+faiss-cpu
+sentence-transformers
+huggingface-hub
+
+# NLP processing
+nltk

@@ -1,5 +1,5 @@
-from gevent import monkey
-monkey.patch_all()
+import gevent.monkey
+gevent.monkey.patch_all()
 
 # Now import other modules
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
@@ -7,67 +7,75 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
-import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 from bson import ObjectId
 import json
 import uuid
-from flask_socketio import SocketIO, emit
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
 from threading import Thread
 import time
 import logging
 import warnings
+from gemini_config import init_gemini, create_assessment_chain, create_question_chain, init_vector_store, get_similar_questions, check_ai_services_status
+import atexit
+import google.generativeai as genai
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 
+# Initialize Flask app
 app = Flask(__name__, 
-            template_folder='frontend', 
-            static_folder='frontend/assets',
-            static_url_path='/assets')
+    template_folder='frontend', 
+    static_folder='frontend/assets',
+    static_url_path='/assets'
+)
 
 # Configure the app
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-app.config['MONGO_URI'] = os.getenv('MONGO_URI')
 
-# Initialize MongoDB
-mongo = PyMongo(app)
+# MongoDB Configuration
+app.config['MONGO_URI'] = 'mongodb://localhost:27017/interview_platform'
+
+# Initialize MongoDB with error handling
+try:
+    mongo = PyMongo(app)
+    # Test the connection
+    mongo.db.command('ping')
+    print("MongoDB connected successfully")
+except Exception as e:
+    print(f"MongoDB connection error: {str(e)}")
+    raise
 
 # Initialize Login Manager
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Initialize Gemini AI
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-
-# Initialize SocketIO with gevent
+# Configure CORS
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://127.0.0.1:5002"],
-        "methods": ["GET", "POST"],
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
 })
 
-socketio = SocketIO(app, 
+# Initialize SocketIO
+socketio = SocketIO(
+    app,
     cors_allowed_origins="*",
     async_mode='gevent',
-    ping_timeout=10,
-    ping_interval=5,
-    transports=['websocket'],
-    logger=False,  # Disable SocketIO logging
-    engineio_logger=False  # Disable engine.io logging
+    ping_timeout=30,
+    ping_interval=10,
+    logger=True,
+    engineio_logger=True
 )
-
-# Download required NLTK data
-nltk.download('punkt')
-nltk.download('stopwords')
 
 # Suppress specific warnings and logs
 logging.getLogger('gevent').setLevel(logging.ERROR)
@@ -85,8 +93,10 @@ class SocketHandshakeFilter(logging.Filter):
                     'SSL/TLS handshake' in record.getMessage())
 
 # Apply the filter to your logger
-logger = logging.getLogger()
 logger.addFilter(SocketHandshakeFilter())
+
+# Add connection tracking
+connections = {}
 
 class User(UserMixin):
     def __init__(self, user_data):
@@ -107,10 +117,25 @@ def load_user(user_id):
         print(f"Error loading user: {e}")
         return None
 
-def get_ai_assistance(prompt):
-    model = genai.GenerativeModel('gemini-pro')
-    response = model.generate_content(prompt)
-    return response.text
+def get_ai_assistance(prompt, retries=3):
+    """
+    Get AI assistance with retry mechanism and better error handling
+    """
+    for attempt in range(retries):
+        try:
+            model = genai.GenerativeModel('gemini-1.5-pro-latest')
+            response = model.generate_content(prompt)
+            
+            if not response or not response.text:
+                raise ValueError("Empty response from Gemini")
+                
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"Gemini API error (attempt {attempt + 1}/{retries}): {str(e)}")
+            if attempt == retries - 1:  # Last attempt
+                raise
+            time.sleep(1)  # Wait before retrying
 
 # Auth Route
 @app.route('/login', methods=['GET', 'POST'])
@@ -405,16 +430,75 @@ def practice():
 @app.route('/get-random-question', methods=['GET'])
 @login_required
 def get_random_question():
-    role = request.args.get('role')
-    # Find role questions from questions.json
-    with open('frontend/assets/questions.json') as f:
-        data = json.load(f)
-        role_data = next((r for r in data['job_roles'] if r['role'] == role), None)
-        if role_data:
-            import random
-            question = random.choice(role_data['questions'])
-            return jsonify({'success': True, 'question': question})
-    return jsonify({'success': False, 'message': 'Role not found'}), 404
+    try:
+        role = request.args.get('role', 'general')
+        level = request.args.get('level', 'intermediate')
+        technology = request.args.get('technology', 'general')
+        
+        # Define a fallback question
+        fallback_question = {
+            'question': f"Explain the key skills and technologies required for a {role} role.",
+            'expected_topics': ["technical skills", "soft skills", "industry knowledge"],
+            'difficulty': "medium",
+            'ideal_answer_points': [
+                "Technical expertise in relevant technologies",
+                "Problem-solving approach",
+                "Communication and teamwork"
+            ]
+        }
+        
+        # Only try AI question generation if the chain is available
+        if question_chain is not None:
+            max_retries = 2
+            for attempt in range(max_retries + 1):
+                try:
+                    # Generate question using Ollama
+                    result = question_chain.run({
+                        'role': role,
+                        'level': level,
+                        'technology': technology
+                    })
+                    
+                    # Parse the response
+                    question_data = json.loads(result)
+                    
+                    # Validate required fields
+                    if 'question' not in question_data:
+                        raise ValueError("Generated question is missing required fields")
+                    
+                    logger.info(f"Successfully generated question on attempt {attempt + 1}")
+                    
+                    # Return the AI-generated question
+                    return jsonify({
+                        'success': True,
+                        'question': question_data['question'],
+                        'expected_topics': question_data.get('expected_topics', []),
+                        'difficulty': question_data.get('difficulty', 'medium'),
+                        'ideal_answer_points': question_data.get('ideal_answer_points', [])
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"Error generating question (attempt {attempt + 1}/{max_retries + 1}): {str(e)}")
+                    if attempt < max_retries:
+                        logger.info(f"Retrying question generation... ({attempt + 1}/{max_retries})")
+                        time.sleep(1)  # Wait before retrying
+                    else:
+                        logger.error("All retry attempts failed, using fallback question")
+        else:
+            logger.warning("Question chain not available, using fallback question")
+        
+        # If we get here, use the fallback question
+        return jsonify({
+            'success': True,
+            'question': fallback_question['question'],
+            'expected_topics': fallback_question['expected_topics'],
+            'difficulty': fallback_question['difficulty'],
+            'ideal_answer_points': fallback_question['ideal_answer_points']
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in question generation endpoint: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/submit-answer', methods=['POST'])
 @login_required
@@ -431,50 +515,68 @@ def submit_answer():
         if not all([role, question, answer]):
             return jsonify({'success': False, 'message': 'Missing required fields'}), 400
         
-        # Generate AI assessment with more structured prompt
-        prompt = f"""
-        Analyze the following answer for a technical interview question.
+        # Define a fallback assessment to use if AI fails
+        fallback_assessment = {
+            'score': 70,
+            'strengths': [
+                'Shows basic understanding of concepts',
+                'Attempts to provide explanation',
+                'Demonstrates problem-solving approach'
+            ],
+            'improvements': [
+                'Add more technical details',
+                'Include practical examples',
+                'Structure answer more clearly'
+            ],
+            'feedback': 'Your answer demonstrates foundational knowledge but could benefit from more specific examples and technical depth.'
+        }
         
-        Question: {question}
-        Answer: {answer}
+        # Initialize assessment with fallback
+        assessment = fallback_assessment.copy()
         
-        Provide your assessment in the following JSON format:
-        {{
-            "score": <number between 0 and 100>,
-            "strengths": "<bullet points of strengths>",
-            "improvements": "<bullet points of areas for improvement>",
-            "feedback": "<overall feedback>"
-        }}
-        
-        Be specific and constructive in your feedback.
-        """
-        
-        try:
-            ai_response = get_ai_assistance(prompt)
-            # Clean the response to ensure it's valid JSON
-            ai_response = ai_response.strip()
-            if ai_response.startswith('```json'):
-                ai_response = ai_response[7:-3]  # Remove ```json and ``` if present
-            assessment = json.loads(ai_response)
-            
-            # Validate assessment structure
-            required_keys = ['score', 'strengths', 'improvements', 'feedback']
-            if not all(key in assessment for key in required_keys):
-                raise ValueError("Invalid assessment format")
-            
-            # Ensure score is an integer between 0 and 100
-            assessment['score'] = max(0, min(100, int(float(assessment['score']))))
-            
-        except Exception as e:
-            print(f"Error processing AI response: {str(e)}")
-            print(f"Raw AI response: {ai_response}")
-            # Provide a fallback assessment if AI parsing fails
-            assessment = {
-                'score': 70,
-                'strengths': 'Answer shows understanding of the concept.',
-                'improvements': 'Could provide more detailed examples.',
-                'feedback': 'Good attempt, but could be more comprehensive.'
-            }
+        # Only try AI assessment if the chain is available
+        if assessment_chain is not None:
+            max_retries = 2
+            for attempt in range(max_retries + 1):
+                try:
+                    # Get assessment from Ollama
+                    result = assessment_chain.run({
+                        'role': role,
+                        'question': question,
+                        'answer': answer
+                    })
+                    
+                    # Parse the response
+                    ai_assessment = json.loads(result)
+                    
+                    # Validate assessment structure
+                    required_keys = ['score', 'strengths', 'improvements', 'feedback']
+                    if not all(key in ai_assessment for key in required_keys):
+                        raise ValueError("Missing required assessment fields")
+                    
+                    # Ensure score is an integer between 0 and 100
+                    ai_assessment['score'] = max(0, min(100, int(float(ai_assessment['score']))))
+                    
+                    # Ensure strengths and improvements are lists
+                    if isinstance(ai_assessment['strengths'], str):
+                        ai_assessment['strengths'] = [s.strip() for s in ai_assessment['strengths'].split(',')]
+                    if isinstance(ai_assessment['improvements'], str):
+                        ai_assessment['improvements'] = [i.strip() for i in ai_assessment['improvements'].split(',')]
+                    
+                    # Use the AI assessment instead of fallback
+                    assessment = ai_assessment
+                    logger.info(f"Successfully generated AI assessment on attempt {attempt + 1}")
+                    break
+                    
+                except Exception as e:
+                    logger.error(f"Error processing AI response (attempt {attempt + 1}/{max_retries + 1}): {str(e)}")
+                    if attempt < max_retries:
+                        logger.info(f"Retrying assessment generation... ({attempt + 1}/{max_retries})")
+                        time.sleep(1)  # Wait before retrying
+                    else:
+                        logger.error("All retry attempts failed, using fallback assessment")
+        else:
+            logger.warning("Assessment chain not available, using fallback assessment")
         
         # Store the assessment
         assessment_data = {
@@ -485,6 +587,7 @@ def submit_answer():
             'assessment': assessment,
             'created_at': datetime.now(timezone.utc)
         }
+        
         mongo.db.assessments.insert_one(assessment_data)
         
         return jsonify({
@@ -493,7 +596,7 @@ def submit_answer():
         })
         
     except Exception as e:
-        print(f"Submit answer error: {str(e)}")  # Add logging
+        logger.error(f"Error processing submission: {str(e)}")
         return jsonify({
             'success': False,
             'message': f"Error processing submission: {str(e)}"
@@ -544,7 +647,16 @@ def get_interview_questions_route(interview_id):
         role = data.get('role', 'general')
         context = data.get('context', '')  # Previous conversation context
         
-        # Get predefined questions
+        # Use vector search to find relevant questions
+        if vector_store and context:
+            questions = get_similar_questions(vector_store, context, role)
+            if questions:
+                return jsonify({
+                    'success': True,
+                    'questions': questions[:3]  # Return top 3 questions
+                })
+        
+        # Fallback to predefined questions if vector search fails
         questions = get_interview_questions(role)
         
         # Use Gemini to customize questions based on context
@@ -631,23 +743,44 @@ def handle_next_question(data):
     try:
         room_id = data['roomId']
         context = data.get('currentContext', '')
+        role = data.get('role', 'general')
         
-        # Load questions
+        # Use vector search to find relevant questions
+        if vector_store and context:
+            questions = get_similar_questions(vector_store, context, role)
+            if questions:
+                emit('ai_question', {
+                    'question': questions[0],
+                    'topics': ['technical', 'interview']
+                }, room=room_id)
+                return
+        
+        # Fallback to random question if vector search fails
         with open('frontend/assets/questions.json', 'r') as f:
             questions_data = json.load(f)
         
-        # Get random question (you can implement more sophisticated selection)
+        # Find role or use default
+        role_data = None
+        for r in questions_data['job_roles']:
+            if r['role'].lower() == role.lower():
+                role_data = r
+                break
+        
+        if not role_data:
+            # Use first role as default
+            role_data = questions_data['job_roles'][0]
+        
+        # Get random question
         import random
-        role = random.choice(questions_data['job_roles'])
-        question = random.choice(role['questions'])
+        question = random.choice(role_data['questions'])
         
         emit('ai_question', {
             'question': question,
-            'topics': ['technical', 'interview']  # You can enhance this
+            'topics': ['technical', 'interview']
         }, room=room_id)
         
     except Exception as e:
-        print(f"Error generating next question: {e}")
+        logger.error(f"Error generating next question: {e}")
 
 # Add this function to check if interview is expired
 def is_interview_expired(interview):
@@ -686,109 +819,171 @@ def handle_voice_transcript(data):
         transcript = data['transcript']
         room_id = data['roomId']
         
-        # Analyze transcript
-        tokens = word_tokenize(transcript.lower())
-        stop_words = set(stopwords.words('english'))
-        keywords = [word for word in tokens if word not in stop_words]
+        # Use vector search to find relevant questions based on transcript
+        if vector_store:
+            questions = get_similar_questions(vector_store, transcript)
+            if questions:
+                emit('voice_analysis', {
+                    'analysis': f"Analyzing transcript...",
+                    'questions': [{'question': q, 'topics': ['technical', 'interview']} for q in questions[:3]]
+                }, room=room_id)
+                return
         
-        # Load questions from JSON
-        with open('frontend/assets/questions.json', 'r') as f:
-            questions_data = json.load(f)
-        
-        # Find relevant questions based on keywords
-        relevant_questions = []
-        for role in questions_data['job_roles']:
-            for question in role['questions']:
-                if any(keyword in question.lower() for keyword in keywords):
-                    relevant_questions.append({
-                        'question': question,
-                        'topics': keywords[:3]  # Use top 3 keywords as topics
-                    })
-        
-        # Send analysis back to room
-        emit('voice_analysis', {
-            'analysis': f"Keywords detected: {', '.join(keywords[:5])}",
-            'questions': relevant_questions[:3]  # Send top 3 relevant questions
-        }, room=room_id)
-        
+        # Fallback to keyword analysis if vector search fails
+        try:
+            from nltk.tokenize import word_tokenize
+            from nltk.corpus import stopwords
+            
+            # Analyze transcript
+            tokens = word_tokenize(transcript.lower())
+            stop_words = set(stopwords.words('english'))
+            keywords = [word for word in tokens if word not in stop_words]
+            
+            # Load questions from JSON
+            with open('frontend/assets/questions.json', 'r') as f:
+                questions_data = json.load(f)
+            
+            # Find relevant questions based on keywords
+            relevant_questions = []
+            for role in questions_data['job_roles']:
+                for question in role['questions']:
+                    if any(keyword in question.lower() for keyword in keywords):
+                        relevant_questions.append({
+                            'question': question,
+                            'topics': keywords[:3]  # Use top 3 keywords as topics
+                        })
+            
+            # Send analysis back to room
+            emit('voice_analysis', {
+                'analysis': f"Keywords detected: {', '.join(keywords[:5])}",
+                'questions': relevant_questions[:3]  # Send top 3 relevant questions
+            }, room=room_id)
+        except Exception as e:
+            logger.error(f"Error in keyword analysis: {str(e)}")
+            
     except Exception as e:
-        print(f"Error processing voice transcript: {e}")
+        logger.error(f"Error processing voice transcript: {str(e)}")
 
 @socketio.on('join_room')
 def on_join(data):
-    room = data.get('room') or data.get('interview_id')
-    
-    if not room:
-        print("No room/interview_id provided")
-        return
-    
-    interview = mongo.db.interviews.find_one({'_id': ObjectId(room)})
-    
-    if interview:
-        # Calculate deadline based on interview's scheduled date and time
-        interview_datetime = datetime.combine(
-            datetime.strptime(interview['date'], '%Y-%m-%d').date(),
-            datetime.strptime(interview['time'], '%H:%M').time()
-        )
-        interview_datetime = interview_datetime.replace(tzinfo=timezone.utc)
+    try:
+        room_id = data.get('roomId')
+        user_name = data.get('userName')
+        is_interviewer = data.get('isInterviewer', False)
         
-        # Schedule room closure at interview's scheduled time
-        socketio.start_background_task(
-            target=close_room_at_deadline, 
-            room=room, 
-            deadline=interview_datetime
-        )
-
-def close_room_at_deadline(room, deadline):
-    # Wait until deadline
-    current_time = datetime.now(timezone.utc)
-    wait_time = (deadline - current_time).total_seconds()
+        if not room_id or not user_name:
+            logger.error("Missing room ID or user name")
+            return
+        
+        join_room(room_id)
+        
+        # Initialize room if it doesn't exist
+        if room_id not in connections:
+            connections[room_id] = {
+                'count': 0,
+                'users': set(),
+                'interviewer': None,
+                'interviewee': None
+            }
+        
+        # Add user to room
+        connections[room_id]['users'].add(request.sid)
+        connections[room_id]['count'] += 1
+        
+        if is_interviewer:
+            connections[room_id]['interviewer'] = request.sid
+        else:
+            connections[room_id]['interviewee'] = request.sid
+        
+        logger.info(f"User {user_name} joined room {room_id} as {'interviewer' if is_interviewer else 'interviewee'}")
+        
+        # Notify room of new user
+        emit('user_joined', {
+            'userId': request.sid,
+            'userName': user_name,
+            'isInterviewer': is_interviewer,
+            'count': connections[room_id]['count']
+        }, room=room_id)
+        
+        # If both users are present, signal to start connection
+        if connections[room_id]['count'] == 2:
+            emit('ready_to_connect', {
+                'initiator': connections[room_id]['interviewer']
+            }, room=room_id)
     
-    if wait_time > 0:
-        socketio.sleep(wait_time)
-    
-    # Emit room closure event
-    socketio.emit('room_closed', {
-        'reason': 'Interview time limit reached'
-    }, room=room)
-    
-    # Update interview status
-    mongo.db.interviews.update_one(
-        {'_id': ObjectId(room)},
-        {'$set': {'status': 'completed'}}
-    )
+    except Exception as e:
+        logger.error(f"Error in join_room: {str(e)}")
 
 @socketio.on('offer')
 def handle_offer(data):
-    print("Handling offer")
-    room = data['roomId']
-    emit('offer', {
-        'offer': data['offer']
-    }, room=room, include_self=False)
+    try:
+        room_id = data.get('roomId')
+        if not room_id:
+            logger.error("No room ID provided with offer")
+            return
+        
+        emit('offer', {
+            'offer': data['offer'],
+            'from': request.sid
+        }, room=room_id)
+        logger.info(f"Offer relayed in room {room_id}")
+    
+    except Exception as e:
+        logger.error(f"Error handling offer: {str(e)}")
 
 @socketio.on('answer')
 def handle_answer(data):
-    print("Handling answer")
-    room = data['roomId']
-    emit('answer', {
-        'answer': data['answer']
-    }, room=room, include_self=False)
+    try:
+        room_id = data.get('roomId')
+        if not room_id:
+            logger.error("No room ID provided with answer")
+            return
+        
+        emit('answer', {
+            'answer': data['answer'],
+            'from': request.sid
+        }, room=room_id)
+        logger.info(f"Answer relayed in room {room_id}")
+    
+    except Exception as e:
+        logger.error(f"Error handling answer: {str(e)}")
 
 @socketio.on('ice_candidate')
 def handle_ice_candidate(data):
-    print("Handling ICE candidate")
-    room = data['roomId']
-    emit('ice_candidate', {
-        'candidate': data['candidate']
-    }, room=room, include_self=False)
-
-@socketio.on('connect')
-def handle_connect():
-    print('Client connected')
+    try:
+        room_id = data.get('roomId')
+        if not room_id:
+            logger.error("No room ID provided with ICE candidate")
+            return
+        
+        emit('ice_candidate', {
+            'candidate': data['candidate'],
+            'from': request.sid
+        }, room=room_id)
+        logger.info(f"ICE candidate relayed in room {room_id}")
+    
+    except Exception as e:
+        logger.error(f"Error handling ice candidate: {str(e)}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    print('Client disconnected')
+    logger.info(f"Client disconnected: {request.sid}")
+    # Clean up any rooms this user was in
+    for room_id in list(connections.keys()):
+        if request.sid in connections[room_id]['users']:
+            leave_room(room_id)
+            connections[room_id]['users'].remove(request.sid)
+            connections[room_id]['count'] -= 1
+            
+            # Notify others in the room
+            emit('user_disconnected', {
+                'userId': request.sid,
+                'count': connections[room_id]['count']
+            }, room=room_id)
+            
+            # Clean up empty rooms
+            if connections[room_id]['count'] == 0:
+                del connections[room_id]
 
 def check_and_update_interviews():
     while True:
@@ -837,10 +1032,180 @@ def start_interview_expiration_thread():
     thread = Thread(target=check_and_update_interviews, daemon=True)
     thread.start()
 
-# Modify your main block or app initialization
+# Initialize AI components
+try:
+    llm = init_gemini()
+    assessment_chain = create_assessment_chain(llm)
+    question_chain = create_question_chain(llm)
+    vector_store = init_vector_store()
+    logger.info("AI components initialized successfully")
+except Exception as e:
+    logger.error(f"Error initializing AI components: {str(e)}")
+    # Set fallback values
+    llm = None
+    assessment_chain = None
+    question_chain = None
+    vector_store = None
+
+def periodic_ai_health_check():
+    """Periodically check and restart AI components if needed"""
+    while True:
+        try:
+            # Sleep first to allow initial startup to complete
+            time.sleep(300)  # Check every 5 minutes
+            
+            logger.info("Running periodic AI health check")
+            check_and_restart_ai_components()
+            
+        except Exception as e:
+            logger.error(f"Error in AI health check: {str(e)}")
+
+def start_ai_health_check_thread():
+    """Start the AI health check thread"""
+    thread = Thread(target=periodic_ai_health_check, daemon=True)
+    thread.start()
+    logger.info("AI health check thread started")
+
+# Update the main block
 if __name__ == '__main__':
-    # Start the interview expiration thread
-    start_interview_expiration_thread()
+    try:
+        # Start the interview expiration thread
+        start_interview_expiration_thread()
+        
+        # Start the AI health check thread
+        start_ai_health_check_thread()
+        
+        # Register cleanup
+        @atexit.register
+        def cleanup():
+            try:
+                logger.info("Ollama server stopped")
+            except Exception as e:
+                logger.error(f"Error stopping Ollama: {str(e)}")
+        
+        # Get port from environment
+        port = int(os.environ.get('PORT', 5001))
+        logger.info(f"Starting server on port {port}")
+        
+        # Run the server
+        socketio.run(
+            app,
+            host='0.0.0.0',
+            port=port,
+            debug=True,
+            use_reloader=False  # Disable reloader to avoid duplicate processes
+        )
+    except Exception as e:
+        logger.error(f"Error starting server: {str(e)}")
+        raise
+
+@app.route('/ai-status', methods=['GET'])
+@login_required
+def ai_status():
+    """Check the status of AI services"""
+    try:
+        ai_services = {
+            'llm': llm is not None,
+            'assessment_chain': assessment_chain is not None,
+            'question_chain': question_chain is not None
+        }
+        
+        # Try a simple test if the LLM is available
+        if llm is not None:
+            try:
+                test_response = llm.invoke("test")
+                ai_services['llm_responsive'] = True
+            except Exception as e:
+                logger.error(f"LLM test failed: {str(e)}")
+                ai_services['llm_responsive'] = False
+                ai_services['llm_error'] = str(e)
+        
+        return jsonify({
+            'success': True,
+            'ai_services': ai_services
+        })
+    except Exception as e:
+        logger.error(f"Error checking AI status: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+def check_and_restart_ai_components():
+    """Check if AI components are working and try to reinitialize them if not"""
+    global llm, assessment_chain, question_chain, vector_store
     
-    port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, debug=True, host='127.0.0.1', port=port)
+    try:
+        # Check if LLM is responsive
+        if llm is not None:
+            try:
+                test_response = llm.invoke("test")
+                logger.info("LLM is responsive")
+                return True
+            except Exception as e:
+                logger.error(f"LLM test failed: {str(e)}")
+        
+        # If we get here, we need to reinitialize
+        logger.info("Attempting to reinitialize AI components")
+        llm = init_gemini()
+        
+        if llm is not None:
+            assessment_chain = create_assessment_chain(llm)
+            question_chain = create_question_chain(llm)
+            
+            # Reinitialize vector store if needed
+            if vector_store is None:
+                vector_store = init_vector_store()
+                
+            logger.info("AI components reinitialized successfully")
+            return True
+        else:
+            logger.error("Failed to reinitialize LLM")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error checking/restarting AI components: {str(e)}")
+        return False
+
+@app.route('/reinitialize-ai', methods=['POST'])
+@login_required
+def reinitialize_ai():
+    """Manually reinitialize AI components"""
+    try:
+        success = check_and_restart_ai_components()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': "AI components reinitialized successfully"
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': "Failed to reinitialize AI components"
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error in reinitialize-ai endpoint: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f"Error: {str(e)}"
+        }), 500
+
+@app.route('/api/ai-status', methods=['GET'])
+def check_ai_status():
+    """Check the status of all AI services."""
+    try:
+        status = check_ai_services_status()
+        return jsonify({
+            'success': True,
+            'status': status,
+            'message': 'AI services status checked successfully'
+        })
+    except Exception as e:
+        logger.error(f"Error checking AI status: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Error checking AI services status'
+        }), 500

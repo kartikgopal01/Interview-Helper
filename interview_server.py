@@ -5,120 +5,165 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 eventlet.monkey_patch()
 
-from flask import Flask
+from flask import Flask, render_template
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
-# Use environment variable for port, default to 5001
-PORT = int(os.environ.get('PORT', 5001))
+# Use environment variable for port, default to 5002
+PORT = int(os.environ.get('PORT', 5002))
 
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, 
+    cors_allowed_origins="*",
+    async_mode='gevent',
+    ping_timeout=30,
+    ping_interval=10,
+    logger=True,
+    engineio_logger=True
+)
 
-# Store active rooms and users
-active_rooms = {}
+# Store active connections
+connections = {}
+
+@app.route('/')
+def index():
+    return 'Interview Server Running'
 
 @socketio.on('connect')
 def handle_connect():
-    logger.info('Client connected')
+    logger.info(f"Client connected: {request.sid}")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    logger.info(f"Client disconnected: {request.sid}")
+    # Clean up any rooms this user was in
+    for room_id in list(connections.keys()):
+        if request.sid in connections[room_id]['users']:
+            leave_room(room_id)
+            connections[room_id]['users'].remove(request.sid)
+            connections[room_id]['count'] -= 1
+            
+            # Notify others in the room
+            emit('user_disconnected', {
+                'userId': request.sid,
+                'count': connections[room_id]['count']
+            }, room=room_id)
+            
+            # Clean up empty rooms
+            if connections[room_id]['count'] == 0:
+                del connections[room_id]
 
 @socketio.on('join_room')
 def on_join(data):
     try:
-        room = data.get('room')
-        user_id = data.get('user_id')
-        user_name = data.get('user_name')
-        is_interviewer = data.get('is_interviewer')
-
-        # Join the room
-        join_room(room)
-
-        # Track room participants
-        if room not in active_rooms:
-            active_rooms[room] = {}
+        room_id = data.get('roomId')
+        user_name = data.get('userName')
+        is_interviewer = data.get('isInterviewer', False)
         
-        active_rooms[room][user_id] = {
-            'name': user_name,
-            'is_interviewer': is_interviewer
-        }
-
-        # Notify room about new user
+        if not room_id or not user_name:
+            logger.error("Missing room ID or user name")
+            return
+        
+        join_room(room_id)
+        
+        # Initialize room if it doesn't exist
+        if room_id not in connections:
+            connections[room_id] = {
+                'count': 0,
+                'users': set(),
+                'interviewer': None,
+                'interviewee': None
+            }
+        
+        # Add user to room
+        connections[room_id]['users'].add(request.sid)
+        connections[room_id]['count'] += 1
+        
+        if is_interviewer:
+            connections[room_id]['interviewer'] = request.sid
+        else:
+            connections[room_id]['interviewee'] = request.sid
+        
+        logger.info(f"User {user_name} joined room {room_id} as {'interviewer' if is_interviewer else 'interviewee'}")
+        
+        # Notify room of new user
         emit('user_joined', {
-            'user_id': user_id,
-            'user_name': user_name,
-            'is_interviewer': is_interviewer
-        }, room=room)
-
-        # Confirm room join to the client
-        emit('room_joined', {
-            'room': room,
-            'user_id': user_id,
-            'user_name': user_name
-        })
-    except Exception as e:
-        logger.error(f"Error joining room: {e}")
-        emit('error', {'message': str(e)})
-
-@socketio.on('send_message')
-def handle_message(data):
-    room = data.get('room')
-    message = data.get('message')
-    user_id = data.get('user_id')
-    user_name = data.get('user_name')
-
-    # Broadcast message to all in the room
-    emit('receive_message', {
-        'room': room,
-        'message': message,
-        'user_id': user_id,
-        'user_name': user_name
-    }, room=room)
-
-@socketio.on('leave_room')
-def on_leave(data):
-    room = data.get('room')
-    user_id = data.get('user_id')
-
-    # Remove user from room tracking
-    if room in active_rooms and user_id in active_rooms[room]:
-        del active_rooms[room][user_id]
-
-    leave_room(room)
+            'userId': request.sid,
+            'userName': user_name,
+            'isInterviewer': is_interviewer,
+            'count': connections[room_id]['count']
+        }, room=room_id)
+        
+        # If both users are present, signal to start connection
+        if connections[room_id]['count'] == 2:
+            emit('ready_to_connect', {
+                'initiator': connections[room_id]['interviewer']
+            }, room=room_id)
     
-    # Notify room about user leaving
-    emit('user_left', {
-        'user_id': user_id
-    }, room=room)
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    logger.info('Client disconnected')
+    except Exception as e:
+        logger.error(f"Error in join_room: {str(e)}")
 
 @socketio.on('offer')
 def handle_offer(data):
-    print("Handling offer")
-    room = data['roomId']
-    emit('offer', {
-        'offer': data['offer']
-    }, room=room, include_self=False)
+    try:
+        room_id = data.get('roomId')
+        if not room_id:
+            logger.error("No room ID provided with offer")
+            return
+        
+        # Send offer to the other peer
+        emit('offer', {
+            'offer': data['offer'],
+            'from': request.sid
+        }, room=room_id)
+        logger.info(f"Offer relayed in room {room_id}")
+    
+    except Exception as e:
+        logger.error(f"Error handling offer: {str(e)}")
 
 @socketio.on('answer')
 def handle_answer(data):
-    print("Handling answer")
-    room = data['roomId']
-    emit('answer', {
-        'answer': data['answer']
-    }, room=room, include_self=False)
+    try:
+        room_id = data.get('roomId')
+        if not room_id:
+            logger.error("No room ID provided with answer")
+            return
+        
+        # Send answer to the other peer
+        emit('answer', {
+            'answer': data['answer'],
+            'from': request.sid
+        }, room=room_id)
+        logger.info(f"Answer relayed in room {room_id}")
+    
+    except Exception as e:
+        logger.error(f"Error handling answer: {str(e)}")
 
 @socketio.on('ice_candidate')
 def handle_ice_candidate(data):
-    print("Handling ICE candidate")
-    room = data['roomId']
-    emit('ice_candidate', {
-        'candidate': data['candidate']
-    }, room=room, include_self=False)
+    try:
+        room_id = data.get('roomId')
+        if not room_id:
+            logger.error("No room ID provided with ICE candidate")
+            return
+        
+        # Send ICE candidate to the other peer
+        emit('ice_candidate', {
+            'candidate': data['candidate'],
+            'from': request.sid
+        }, room=room_id)
+        logger.info(f"ICE candidate relayed in room {room_id}")
+    
+    except Exception as e:
+        logger.error(f"Error handling ICE candidate: {str(e)}")
 
 if __name__ == '__main__':
-    socketio.run(app, port=PORT, debug=True)
+    socketio.run(app, host='0.0.0.0', port=PORT, debug=True)

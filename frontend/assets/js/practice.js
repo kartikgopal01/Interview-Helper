@@ -1,4 +1,25 @@
 document.addEventListener("DOMContentLoaded", function () {
+  // Initialize variables
+  let currentQuestion = "";
+  let previousQuestions = []; // Track previously shown questions
+  let aiServiceStatus = {
+    available: true,
+    message: ""
+  };
+  const questionArea = document.getElementById("questionArea");
+  const currentQuestionElement = document.getElementById("currentQuestion");
+  const answerInput = document.getElementById("answerInput");
+  const assessmentModal = document.getElementById("assessmentModal");
+  const submitButton = document.getElementById("submitAnswer");
+  const spinner = document.getElementById("submitSpinner");
+  const submitAnswerText = document.getElementById("submitAnswerText");
+
+  // Create AI service status UI
+  createAiStatusUI();
+
+  // Check AI service status on load
+  checkAiStatus();
+
   // Load roles into select
   fetch("/assets/questions.json")
     .then((response) => response.json())
@@ -12,23 +33,32 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
 
-  // Initialize variables
-  let currentQuestion = "";
-  const questionArea = document.getElementById("questionArea");
-  const currentQuestionElement = document.getElementById("currentQuestion");
-  const answerInput = document.getElementById("answerInput");
-  const assessmentModal = document.getElementById("assessmentModal");
-  const submitButton = document.getElementById("submitAnswer");
-  const spinner = document.getElementById("submitSpinner");
-
   // Event Listeners
   document
     .getElementById("roleSelect")
-    .addEventListener("change", loadNewQuestion);
+    .addEventListener("change", function() {
+      // Reset previous questions when role changes
+      previousQuestions = [];
+      loadNewQuestion();
+    });
   submitButton.addEventListener("click", handleSubmit);
   document
     .getElementById("nextQuestion")
-    .addEventListener("click", loadNewQuestion);
+    .addEventListener("click", function() {
+      // Disable the button temporarily to prevent multiple clicks
+      const nextButton = document.getElementById("nextQuestion");
+      nextButton.disabled = true;
+      nextButton.classList.add("opacity-50");
+      
+      // Load new question
+      loadNewQuestion();
+      
+      // Re-enable the button after a short delay
+      setTimeout(() => {
+        nextButton.disabled = false;
+        nextButton.classList.remove("opacity-50");
+      }, 1000);
+    });
   document.getElementById("closeModal").addEventListener("click", () => {
     assessmentModal.classList.add("hidden");
   });
@@ -36,23 +66,180 @@ document.addEventListener("DOMContentLoaded", function () {
   // Load initial analytics
   loadAnalytics();
 
+  function createAiStatusUI() {
+    // Create AI service status container
+    const aiStatusContainer = document.createElement("div");
+    aiStatusContainer.id = "aiStatusContainer";
+    aiStatusContainer.className = "mb-6 p-4 rounded-lg border border-gray-700 mt-4";
+    
+    // Create status indicator
+    const statusContent = `
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-300">AI Service Status</h3>
+          <p id="aiStatusMessage" class="text-gray-400 text-sm mt-1">Checking status...</p>
+        </div>
+        <div class="flex items-center">
+          <div id="aiStatusIndicator" class="w-3 h-3 rounded-full bg-yellow-500 mr-2"></div>
+          <button id="reinitializeAi" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded transition duration-300">
+            Reinitialize
+          </button>
+        </div>
+      </div>
+    `;
+    
+    aiStatusContainer.innerHTML = statusContent;
+    
+    // Insert after role selection
+    const roleSelect = document.getElementById("roleSelect").parentNode;
+    roleSelect.parentNode.insertBefore(aiStatusContainer, roleSelect.nextSibling);
+    
+    // Add event listener for reinitialize button
+    document.getElementById("reinitializeAi").addEventListener("click", reinitializeAi);
+  }
+
+  function checkAiStatus() {
+    fetch("/ai-status")
+      .then(response => response.json())
+      .then(data => {
+        const statusIndicator = document.getElementById("aiStatusIndicator");
+        const statusMessage = document.getElementById("aiStatusMessage");
+        
+        if (data.success && data.ai_services) {
+          const services = data.ai_services;
+          
+          if (services.llm && services.assessment_chain && services.question_chain && services.llm_responsive) {
+            // All services are available
+            statusIndicator.className = "w-3 h-3 rounded-full bg-green-500 mr-2";
+            statusMessage.textContent = "AI services are available";
+            statusMessage.className = "text-gray-400 text-sm mt-1";
+            aiServiceStatus.available = true;
+          } else {
+            // Some services are unavailable
+            statusIndicator.className = "w-3 h-3 rounded-full bg-red-500 mr-2";
+            statusMessage.textContent = "Some AI services are unavailable. Using fallback mode.";
+            statusMessage.className = "text-yellow-400 text-sm mt-1";
+            aiServiceStatus.available = false;
+            aiServiceStatus.message = "AI services unavailable";
+          }
+        } else {
+          // Error checking status
+          statusIndicator.className = "w-3 h-3 rounded-full bg-red-500 mr-2";
+          statusMessage.textContent = "Error checking AI status. Using fallback mode.";
+          statusMessage.className = "text-yellow-400 text-sm mt-1";
+          aiServiceStatus.available = false;
+          aiServiceStatus.message = data.message || "Error checking AI status";
+        }
+      })
+      .catch(error => {
+        console.error("Error checking AI status:", error);
+        const statusIndicator = document.getElementById("aiStatusIndicator");
+        const statusMessage = document.getElementById("aiStatusMessage");
+        
+        statusIndicator.className = "w-3 h-3 rounded-full bg-red-500 mr-2";
+        statusMessage.textContent = "Error connecting to server. Using fallback mode.";
+        statusMessage.className = "text-yellow-400 text-sm mt-1";
+        aiServiceStatus.available = false;
+        aiServiceStatus.message = "Connection error";
+      });
+  }
+
+  function reinitializeAi() {
+    const statusIndicator = document.getElementById("aiStatusIndicator");
+    const statusMessage = document.getElementById("aiStatusMessage");
+    const reinitializeButton = document.getElementById("reinitializeAi");
+    
+    // Show loading state
+    statusIndicator.className = "w-3 h-3 rounded-full bg-yellow-500 mr-2";
+    statusMessage.textContent = "Reinitializing AI services...";
+    statusMessage.className = "text-gray-400 text-sm mt-1";
+    reinitializeButton.disabled = true;
+    reinitializeButton.classList.add("opacity-50");
+    
+    fetch("/reinitialize-ai", {
+      method: "POST"
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          statusIndicator.className = "w-3 h-3 rounded-full bg-green-500 mr-2";
+          statusMessage.textContent = "AI services reinitialized successfully";
+          statusMessage.className = "text-green-400 text-sm mt-1";
+          aiServiceStatus.available = true;
+        } else {
+          statusIndicator.className = "w-3 h-3 rounded-full bg-red-500 mr-2";
+          statusMessage.textContent = data.message || "Failed to reinitialize AI services";
+          statusMessage.className = "text-red-400 text-sm mt-1";
+          aiServiceStatus.available = false;
+          aiServiceStatus.message = data.message || "Reinitialization failed";
+        }
+      })
+      .catch(error => {
+        console.error("Error reinitializing AI:", error);
+        statusIndicator.className = "w-3 h-3 rounded-full bg-red-500 mr-2";
+        statusMessage.textContent = "Error connecting to server";
+        statusMessage.className = "text-red-400 text-sm mt-1";
+      })
+      .finally(() => {
+        reinitializeButton.disabled = false;
+        reinitializeButton.classList.remove("opacity-50");
+        
+        // Check status again after a short delay
+        setTimeout(checkAiStatus, 2000);
+      });
+  }
+
   function loadNewQuestion() {
     const role = document.getElementById("roleSelect").value;
     if (!role) return;
 
-    fetch(`/get-random-question?role=${encodeURIComponent(role)}`)
+    // Show loading state
+    questionArea.classList.add("opacity-50");
+    currentQuestionElement.textContent = "Loading question...";
+    
+    // Fetch questions from the JSON file instead of the server endpoint
+    fetch("/assets/questions.json")
       .then((response) => response.json())
       .then((data) => {
-        if (data.success) {
-          questionArea.classList.remove("hidden");
-          currentQuestion = data.question;
-          currentQuestionElement.textContent = data.question;
+        // Find the selected role
+        const roleData = data.job_roles.find(r => r.role === role);
+        
+        if (roleData && roleData.questions && roleData.questions.length > 0) {
+          // Get available questions (excluding previously shown ones)
+          let availableQuestions = roleData.questions.filter(q => !previousQuestions.includes(q));
+          
+          // If we've shown all questions, reset the history but avoid the last shown question
+          if (availableQuestions.length === 0) {
+            previousQuestions = currentQuestion ? [currentQuestion] : [];
+            availableQuestions = roleData.questions.filter(q => q !== currentQuestion);
+          }
+          
+          // Get a random question from available ones
+          const randomIndex = Math.floor(Math.random() * availableQuestions.length);
+          const randomQuestion = availableQuestions[randomIndex];
+          
+          // Add to previous questions (keep only the last 5)
+          previousQuestions.push(randomQuestion);
+          if (previousQuestions.length > 5) {
+            previousQuestions.shift();
+          }
+          
+          // Update UI
+          questionArea.classList.remove("hidden", "opacity-50");
+          currentQuestion = randomQuestion;
+          currentQuestionElement.textContent = randomQuestion;
           answerInput.value = "";
+        } else {
+          console.error("No questions found for the selected role");
+          alert("No questions found for the selected role. Please try another role.");
+          questionArea.classList.add("hidden");
         }
       })
       .catch((error) => {
-        console.error("Error loading question:", error);
-        alert("Failed to load question. Please try again.");
+        console.error("Error loading questions:", error);
+        alert("Failed to load questions. Please try again.");
+        questionArea.classList.remove("opacity-50");
+        questionArea.classList.add("hidden");
       });
   }
 
@@ -73,6 +260,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Show loading state
     submitButton.disabled = true;
     spinner.classList.remove("hidden");
+    submitAnswerText.textContent = "Analyzing...";
 
     fetch("/submit-answer", {
       method: "POST",
@@ -85,49 +273,96 @@ document.addEventListener("DOMContentLoaded", function () {
         answer: answer,
       }),
     })
-      .then((response) => response.json())
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then((data) => {
         if (data.success && data.assessment) {
           displayAssessment(data.assessment);
           loadAnalytics();
+          
+          // Check if we're using fallback assessment
+          if (data.assessment.score === 70 && 
+              data.assessment.strengths[0] === 'Shows basic understanding of concepts') {
+            // Likely using fallback, check AI status
+            checkAiStatus();
+          }
         } else {
           throw new Error(data.message || "Failed to get assessment");
         }
       })
       .catch((error) => {
         console.error("Error submitting answer:", error);
-        alert("Failed to submit answer. Please try again.");
+        
+        // Show error in a more user-friendly way
+        const errorMessage = error.message || "Unknown error";
+        
+        if (errorMessage.includes("AI assessment service is not available") || 
+            errorMessage.includes("Error processing submission")) {
+          // Show AI service error with option to reinitialize
+          const confirmReinitialize = confirm(
+            "There was an issue with the AI service: " + errorMessage + 
+            "\n\nWould you like to try reinitializing the AI service?"
+          );
+          
+          if (confirmReinitialize) {
+            reinitializeAi();
+          }
+        } else {
+          // Show regular error
+          alert(`Failed to submit answer: ${errorMessage}`);
+        }
+        
+        // Check AI status after error
+        checkAiStatus();
       })
       .finally(() => {
-        // Hide loading state
+        // Reset loading state
         submitButton.disabled = false;
         spinner.classList.add("hidden");
+        submitAnswerText.textContent = "Submit Answer";
       });
   }
 
   function displayAssessment(assessment) {
     try {
       const resultsDiv = document.getElementById("assessmentResults");
+      
+      // Format strengths and improvements as bullet points
+      const strengthsList = Array.isArray(assessment.strengths) 
+        ? assessment.strengths.map(s => `<li class="mb-1">• ${s}</li>`).join('')
+        : assessment.strengths.split(',').map(s => `<li class="mb-1">• ${s.trim()}</li>`).join('');
+        
+      const improvementsList = Array.isArray(assessment.improvements)
+        ? assessment.improvements.map(i => `<li class="mb-1">• ${i}</li>`).join('')
+        : assessment.improvements.split(',').map(i => `<li class="mb-1">• ${i.trim()}</li>`).join('');
+
       resultsDiv.innerHTML = `
-                <div class="text-left space-y-4">
-                    <div class="bg-gray-800 p-4 rounded-lg">
-                        <p class="text-xl font-bold text-blue-400">Score: ${assessment.score}/100</p>
-                    </div>
-                    <div class="bg-gray-800 p-4 rounded-lg">
-                        <p class="font-semibold text-blue-400">Strengths:</p>
-                        <p class="text-gray-300">${assessment.strengths}</p>
-                    </div>
-                    <div class="bg-gray-800 p-4 rounded-lg">
-                        <p class="font-semibold text-blue-400">Areas for Improvement:</p>
-                        <p class="text-gray-300">${assessment.improvements}</p>
-                    </div>
-                    <div class="bg-gray-800 p-4 rounded-lg">
-                        <p class="font-semibold text-blue-400">Overall Feedback:</p>
-                        <p class="text-gray-300">${assessment.feedback}</p>
-                    </div>
-                </div>
-            `;
-      assessmentModal.classList.remove("hidden");
+        <div class="text-left space-y-4">
+          <div class="bg-gray-800 p-4 rounded-lg">
+            <p class="text-xl font-bold text-blue-400">Score: ${assessment.score}/100</p>
+          </div>
+          <div class="bg-gray-800 p-4 rounded-lg">
+            <p class="font-semibold text-blue-400 mb-2">Strengths:</p>
+            <ul class="text-gray-300">${strengthsList}</ul>
+          </div>
+          <div class="bg-gray-800 p-4 rounded-lg">
+            <p class="font-semibold text-blue-400 mb-2">Areas for Improvement:</p>
+            <ul class="text-gray-300">${improvementsList}</ul>
+          </div>
+          <div class="bg-gray-800 p-4 rounded-lg">
+            <p class="font-semibold text-blue-400 mb-2">Overall Feedback:</p>
+            <p class="text-gray-300">${assessment.feedback}</p>
+          </div>
+        </div>
+      `;
+      
+      // Show the modal
+      document.getElementById("assessmentModal").classList.remove("hidden");
     } catch (error) {
       console.error("Error displaying assessment:", error);
       alert("Error displaying assessment results");

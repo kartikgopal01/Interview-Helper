@@ -13,6 +13,46 @@
     <script src="../assets/js/navbar.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/nltk@0.0.1/build/nltk.min.js"></script>
+    <meta name="permissions-policy" content="camera=*, microphone=*">
+    <style>
+      .video-container {
+        background: rgba(17, 24, 39, 0.7);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      
+      .video-controls-overlay {
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
+        transition: opacity 0.3s ease;
+      }
+      
+      .glassmorphism {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      }
+      
+      .control-btn {
+        transition: all 0.2s ease;
+        transform: scale(1);
+      }
+      
+      .control-btn:hover {
+        transform: scale(1.1);
+      }
+      
+      .control-btn:active {
+        transform: scale(0.95);
+      }
+      
+      .gradient-text {
+        background: linear-gradient(45deg, #3b82f6, #6366f1);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+    </style>
   </head>
   <body
     class="bg-gray-50 text-black dark:text-white dark:bg-gray-900 transition-all duration-300 min-h-screen"
@@ -20,84 +60,99 @@
     data-user-name="{{ user_name }}"
     data-user-id="{{ user_id }}"
   >
-    <div class="max-w-[90%] h-screen lg:h-screen mx-auto pt-32 px-4 py-8">
-      <div class="grid grid-cols-1 gap-6 h-full">
+    <div class="max-w-[90%] h-screen lg:h-screen mx-auto pt-24 px-4 py-8">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
         <!-- Video Chat Section -->
-        <div class="glassmorphism rounded-2xl p-6 shadow-2xl flex flex-col">
-          <h2 class="text-2xl font-bold mb-4 gradient-text flex-shrink-0">
-            Video Call
-          </h2>
-          <div class="video-container grid grid-cols-2 gap-4 flex-grow">
-            {% if is_interviewer %}
-            <div class="local-video-wrapper relative">
-              <video
-                id="localVideo"
-                autoplay
-                muted
-                class="w-full rounded-lg"
-              ></video>
-              <span
-                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
-              >
-                You (Interviewer)
+        <div class="glassmorphism rounded-2xl shadow-2xl flex flex-col lg:col-span-2 overflow-hidden">
+          <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h2 class="text-2xl font-bold gradient-text flex-shrink-0">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Interview Session
+              </span>
+            </h2>
+            <div class="flex items-center">
+              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                <span class="w-2 h-2 mr-1 bg-green-500 rounded-full"></span>
+                Live
               </span>
             </div>
-            <div class="remote-video-wrapper relative">
-              <video
-                id="remoteVideo"
-                autoplay
-                class="w-full rounded-lg"
-              ></video>
-              <span
-                class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded"
-              >
-                Interviewee
-              </span>
+          </div>
+          
+          <div class="video-container relative flex-grow flex">
+            {% if is_interviewer %}
+            <div class="grid grid-cols-2 gap-4 w-full p-4">
+              <div class="local-video-wrapper relative rounded-xl overflow-hidden h-full bg-gray-800">
+                <video
+                  id="localVideo"
+                  autoplay
+                  muted
+                  class="w-full h-full object-cover"
+                ></video>
+                <div class="absolute bottom-0 left-0 right-0 p-3 video-controls-overlay">
+                  <span class="text-white font-medium text-sm px-3 py-1 bg-black bg-opacity-50 rounded-lg">
+                    You (Interviewer)
+                  </span>
+                </div>
+              </div>
+              <div class="remote-video-wrapper relative rounded-xl overflow-hidden h-full bg-gray-800">
+                <video
+                  id="remoteVideo"
+                  autoplay
+                  class="w-full h-full object-cover"
+                ></video>
+                <div class="absolute bottom-0 left-0 right-0 p-3 video-controls-overlay">
+                  <span class="text-white font-medium text-sm px-3 py-1 bg-black bg-opacity-50 rounded-lg">
+                    Interviewee
+                  </span>
+                </div>
+              </div>
             </div>
             {% else %}
-            <div
-              class="remote-video-wrapper relative col-span-2 h-full w-full flex"
-            >
+            <div class="remote-video-wrapper relative h-full w-full flex">
               <div class="relative flex-grow">
                 <video
                   id="remoteVideo"
                   autoplay
                   class="w-full h-full object-cover"
                 ></video>
-                <span
-                  class="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded z-10"
-                >
-                  Interviewer
-                </span>
+                <div class="absolute top-4 left-4 px-3 py-2 rounded-lg bg-black bg-opacity-50 text-white z-10 flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                  <span class="font-medium">Interviewer</span>
+                </div>
 
                 <!-- Local Video in Bottom Right Corner -->
                 <div
                   class="absolute bottom-4 right-4 w-1/4 max-w-[250px] min-w-[150px] z-20"
                 >
-                  <div class="relative">
+                  <div class="relative rounded-lg overflow-hidden shadow-lg border-2 border-blue-500">
                     <video
                       id="localVideo"
                       autoplay
                       muted
-                      class="w-full h-full rounded-lg shadow-lg border-2 border-white"
+                      class="w-full h-full object-cover"
                     ></video>
-                    <span
-                      class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs"
-                    >
-                      You
-                    </span>
+                    <div class="absolute bottom-0 left-0 right-0 py-2 px-3 bg-gradient-to-t from-black to-transparent">
+                      <span class="text-white text-xs font-medium">
+                        You
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <!-- Vertical Buttons Container -->
               <div
-                class="w-16 my-auto bg-black/30 flex flex-col justify-center space-y-4 p-2 border-neutral-950 rounded-3xl"
+                class="w-16 my-auto mx-4 flex flex-col justify-center space-y-6 p-3 rounded-full bg-gray-800 bg-opacity-80 backdrop-blur-sm"
               >
                 <button
                   title="Start Voice"
                   id="startVoice"
-                  class="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors flex items-center justify-center"
+                  class="control-btn bg-green-500 text-white p-3 rounded-full hover:bg-green-600 transition shadow-lg"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -117,7 +172,7 @@
                 <button
                   title="Stop Voice"
                   id="stopVoice"
-                  class="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors flex items-center justify-center"
+                  class="control-btn bg-red-500 text-white p-3 rounded-full hover:bg-red-600 transition shadow-lg"
                   disabled
                 >
                   <svg
@@ -145,7 +200,7 @@
                 <button
                   title="Toggle Video"
                   id="toggleVideoInterviewee"
-                  class="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors flex items-center justify-center"
+                  class="control-btn bg-blue-500 text-white p-3 rounded-full hover:bg-blue-600 transition shadow-lg"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -165,7 +220,7 @@
                 <button
                   title="Toggle Audio"
                   id="toggleAudioInterviewee"
-                  class="bg-gray-500 text-white p-2 rounded-full hover:bg-gray-600 transition-colors flex items-center justify-center"
+                  class="control-btn bg-gray-500 text-white p-3 rounded-full hover:bg-gray-600 transition shadow-lg"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -186,131 +241,143 @@
             </div>
             {% endif %}
           </div>
-          <div
-            class="controls mt-4 grid grid-cols-2 gap-4 max-w-md mx-auto flex-shrink-0 {% if not is_interviewer %}hidden{% endif %}"
-          >
-            <button
-              id="toggleVideoInterviewer"
-              class="px-4 py-3 rounded-xl bg-blue-600 text-white flex items-center justify-center space-x-2 transition-all duration-300 hover:bg-blue-700"
-            >
-              <svg
-                id="videoIcon"
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-6 w-6 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+          
+          <div class="p-4 border-t border-gray-200 dark:border-gray-700 {% if not is_interviewer %}hidden{% endif %}">
+            <div class="controls max-w-md mx-auto flex space-x-4 justify-center">
+              <button
+                id="toggleVideoInterviewer"
+                class="control-btn flex-1 px-4 py-3 rounded-xl bg-blue-600 text-white flex items-center justify-center space-x-2 transition-all duration-300 hover:bg-blue-700 shadow-md"
               >
-                <!-- Active Video Icon -->
-                <path
-                  id="videoActiveIcon"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-                <!-- Muted Video Icon -->
-                <path
-                  id="videoMutedIcon"
-                  class="hidden"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
-                />
-                <!-- Diagonal Cross for Muted -->
-                <line
-                  id="videoMutedCross"
-                  class="hidden"
-                  x1="3"
-                  y1="3"
-                  x2="21"
-                  y2="21"
+                <svg
+                  id="videoIcon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
                   stroke="currentColor"
-                  stroke-width="2"
-                />
-              </svg>
-              <span id="videoToggleText" class="text-sm">Disable Video</span>
-            </button>
-            <button
-              id="toggleAudioInterviewer"
-              class="px-4 py-3 rounded-xl bg-blue-600 text-white flex items-center justify-center space-x-2 transition-all duration-300 hover:bg-blue-700"
-            >
-              <svg
-                id="audioIcon"
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-6 w-6 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+                >
+                  <!-- Active Video Icon -->
+                  <path
+                    id="videoActiveIcon"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                  <!-- Muted Video Icon -->
+                  <path
+                    id="videoMutedIcon"
+                    class="hidden"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
+                  />
+                  <!-- Diagonal Cross for Muted -->
+                  <line
+                    id="videoMutedCross"
+                    class="hidden"
+                    x1="3"
+                    y1="3"
+                    x2="21"
+                    y2="21"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                </svg>
+                <span id="videoToggleText" class="text-sm font-medium">Disable Video</span>
+              </button>
+              <button
+                id="toggleAudioInterviewer"
+                class="control-btn flex-1 px-4 py-3 rounded-xl bg-blue-600 text-white flex items-center justify-center space-x-2 transition-all duration-300 hover:bg-blue-700 shadow-md"
               >
-                <!-- Active Audio Icon -->
-                <path
-                  id="audioActiveIcon"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                />
-                <!-- Muted Audio Icon -->
-                <path
-                  id="audioMutedIcon"
-                  class="hidden"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                  clip-rule="evenodd"
-                />
-                <!-- Mute Indicator -->
-                <path
-                  id="audioMuteCross"
-                  class="hidden"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
-                />
-              </svg>
-              <span id="audioToggleText" class="text-sm">Mute Audio</span>
-            </button>
+                <svg
+                  id="audioIcon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <!-- Active Audio Icon -->
+                  <path
+                    id="audioActiveIcon"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                  />
+                  <!-- Muted Audio Icon -->
+                  <path
+                    id="audioMutedIcon"
+                    class="hidden"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                    clip-rule="evenodd"
+                  />
+                  <!-- Mute Indicator -->
+                  <path
+                    id="audioMuteCross"
+                    class="hidden"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+                  />
+                </svg>
+                <span id="audioToggleText" class="text-sm font-medium">Mute Audio</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {% if is_interviewer %}
         <!-- AI Assistant and Question Suggestions Section -->
         <div
-          class="glassmorphism rounded-2xl p-6 shadow-2xl flex flex-col overflow-hidden"
+          class="glassmorphism rounded-2xl p-6 shadow-2xl flex flex-col overflow-hidden lg:col-span-1"
         >
-          <h2 class="text-2xl font-bold mb-4 gradient-text flex-shrink-0">
+          <h2 class="text-2xl font-bold mb-4 gradient-text flex-shrink-0 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
             AI Interview Assistant
           </h2>
 
-          <div class="flex-grow overflow-y-auto">
+          <div class="flex-grow overflow-y-auto bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
             <div id="aiQuestions" class="space-y-4 pr-2">
               <!-- AI questions will be populated here -->
               <div
-                class="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-center"
+                class="p-6 bg-white dark:bg-gray-700 rounded-xl text-center shadow-sm border border-gray-100 dark:border-gray-600"
               >
-                <p class="text-gray-600 dark:text-gray-400">
-                  Click "Get Questions" to receive AI-powered interview
-                  suggestions
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="text-gray-600 dark:text-gray-300">
+                  Click "Get Questions" to receive AI-powered interview suggestions
                 </p>
               </div>
             </div>
           </div>
 
-          <div class="mt-4 grid grid-cols-2 gap-4 flex-shrink-0">
+          <div class="mt-6 grid grid-cols-2 gap-4 flex-shrink-0">
             <button
               id="getInterviewDetails"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              class="control-btn px-4 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors shadow-md flex items-center justify-center"
             >
-              Set Interview Details
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Set Details
             </button>
             <button
               id="getNextQuestion"
-              class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              class="control-btn px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors shadow-md flex items-center justify-center"
             >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
               Get Questions
             </button>
           </div>
@@ -318,17 +385,17 @@
           <!-- Interview Details Modal -->
           <div
             id="interviewDetailsModal"
-            class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center"
+            class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden flex items-center justify-center backdrop-blur-sm"
           >
-            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg w-96">
-              <h3 class="text-xl font-bold mb-4">Interview Details</h3>
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl w-96 shadow-2xl">
+              <h3 class="text-xl font-bold mb-4 gradient-text">Interview Details</h3>
               <div class="space-y-4">
                 <div>
-                  <label class="block mb-2">Role</label>
+                  <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">Role</label>
                   <select
                     title="Interview Role"
                     id="interviewRole"
-                    class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   >
                     <option value="frontend">Frontend Developer</option>
                     <option value="backend">Backend Developer</option>
@@ -338,11 +405,11 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block mb-2">Experience Level</label>
+                  <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">Experience Level</label>
                   <select
                     title="Experience Level"
                     id="experienceLevel"
-                    class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   >
                     <option value="entry">Entry Level</option>
                     <option value="intermediate">Intermediate</option>
@@ -350,25 +417,25 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block mb-2">Primary Technology</label>
+                  <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">Primary Technology</label>
                   <input
                     type="text"
                     id="primaryTechnology"
                     placeholder="e.g., Java, Python, React"
-                    class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   />
                 </div>
               </div>
               <div class="mt-6 flex justify-end space-x-4">
                 <button
                   id="cancelInterviewDetails"
-                  class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg"
+                  class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   id="saveInterviewDetails"
-                  class="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                  class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Save
                 </button>
@@ -381,68 +448,73 @@
     </div>
 
     <script>
-      const socket = io('http://127.0.0.1:5002', {
+      const socket = io('/', {  // Connect to same server
           transports: ['websocket'],
-          upgrade: false,
-          cors: {
-              origin: "http://127.0.0.1:5000",
-              methods: ["GET", "POST"]
-          }
+          path: '/socket.io',
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000
       });
+
       const roomId = document.body.getAttribute('data-room-id');
       const userName = document.body.getAttribute('data-user-name');
       const isInterviewer = {% if is_interviewer %}true{% else %}false{% endif %};
       let localStream;
       let peerConnection;
+      let isConnected = false;
 
       // Debug logging
       console.log('Role:', isInterviewer ? 'Interviewer' : 'Interviewee');
 
-      // Add these event listeners after socket initialization
+      // Initialize media devices as soon as page loads
+      document.addEventListener('DOMContentLoaded', async () => {
+        try {
+          // Request both audio and video permissions immediately
+          console.log('Requesting media permissions...');
+          localStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: "user"
+            },
+            audio: true
+          });
+          
+          console.log('Got media stream:', localStream.getTracks().map(t => t.kind));
+          
+          // Set up local video
+          const localVideo = document.getElementById('localVideo');
+          if (localVideo) {
+            localVideo.srcObject = localStream;
+            localVideo.play().catch(e => console.error('Error playing local video:', e));
+          }
+
+          // Connect to signaling server after media is ready
+          socket.connect();
+          
+        } catch (err) {
+          console.error('Error accessing media devices:', err);
+          alert('Failed to access camera/microphone. Please ensure permissions are granted and try again.');
+        }
+      });
+
+      // Socket event handlers
       socket.on('connect', () => {
-          console.log('Connected to WebSocket server');
+        console.log('Connected to signaling server');
+        joinRoom();
       });
 
       socket.on('connect_error', (error) => {
-          console.error('WebSocket connection error:', error);
+        console.error('Connection error:', error);
       });
 
-      socket.on('error', (error) => {
-          console.error('Socket error:', error);
-      });
-
-      async function initializeCall() {
-        try {
-          if (!socket.connected) {
-            console.log('Waiting for socket connection...');
-            await new Promise(resolve => {
-              socket.on('connect', resolve);
-              setTimeout(resolve, 5000); // Timeout after 5 seconds
-            });
-          }
-
-          console.log('Requesting media devices...');
-          localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-          });
-          console.log('Got local stream');
-          document.getElementById('localVideo').srcObject = localStream;
-
-          // Join room with role
-          socket.emit('join_room', {
-            roomId: roomId,
-            userName: userName,
-            isInterviewer: isInterviewer
-          });
-
-          // Wait a moment before creating peer connection
-          setTimeout(() => {
-            createPeerConnection();
-          }, 1000);
-        } catch (e) {
-          console.error('Error in initializeCall:', e);
-        }
+      function joinRoom() {
+        console.log('Joining room:', roomId);
+        socket.emit('join_room', {
+          roomId: roomId,
+          userName: userName,
+          isInterviewer: isInterviewer
+        });
       }
 
       async function createPeerConnection() {
@@ -462,30 +534,24 @@
           peerConnection = new RTCPeerConnection(configuration);
           console.log('Created peer connection');
 
-          // Add all local tracks to the peer connection
-          localStream.getTracks().forEach(track => {
-            console.log('Adding track:', track.kind);
-            peerConnection.addTrack(track, localStream);
-          });
+          // Add local stream tracks to peer connection
+          if (localStream) {
+            localStream.getTracks().forEach(track => {
+              console.log('Adding track to peer connection:', track.kind);
+              peerConnection.addTrack(track, localStream);
+            });
+          } else {
+            console.error('No local stream available');
+          }
 
           // Handle incoming stream
           peerConnection.ontrack = event => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo.srcObject !== event.streams[0]) {
-              console.log('Setting remote stream');
               remoteVideo.srcObject = event.streams[0];
+              remoteVideo.play().catch(e => console.error('Error playing remote video:', e));
             }
-          };
-
-          // Handle connection state changes
-          peerConnection.onconnectionstatechange = event => {
-            console.log('Connection state:', peerConnection.connectionState);
-          };
-
-          // Handle ICE connection state changes
-          peerConnection.oniceconnectionstatechange = event => {
-            console.log('ICE connection state:', peerConnection.iceConnectionState);
           };
 
           // Handle ICE candidates
@@ -499,372 +565,116 @@
             }
           };
 
-          // If interviewer, create and send offer
-          if (isInterviewer) {
-            console.log('Creating offer as interviewer');
-            const offer = await peerConnection.createOffer({
-              offerToReceiveAudio: true,
-              offerToReceiveVideo: true,
-              iceRestart: true
-            });
+          // Log connection state changes
+          peerConnection.onconnectionstatechange = () => {
+            console.log('Connection state:', peerConnection.connectionState);
+          };
 
-            console.log('Setting local description');
-            await peerConnection.setLocalDescription(offer);
+          peerConnection.oniceconnectionstatechange = () => {
+            console.log('ICE connection state:', peerConnection.iceConnectionState);
+          };
 
-            console.log('Sending offer');
-            socket.emit('offer', {
-              roomId: roomId,
-              offer: offer
-            });
-          }
         } catch (e) {
           console.error('Error creating peer connection:', e);
+          alert('Failed to create peer connection. Please refresh the page.');
         }
       }
 
-      // Handle offer from interviewer
-      socket.on('offer', async data => {
-        try {
-          if (!isInterviewer && peerConnection) {
-            console.log('Received offer as interviewee');
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-
-            socket.emit('answer', {
-              roomId: roomId,
-              answer: answer
-            });
+      socket.on('user_joined', async (data) => {
+        console.log('User joined:', data);
+        if (!isConnected && data.count === 2) {
+          if (isInterviewer) {
+            await createPeerConnection();
+            createAndSendOffer();
           }
+          isConnected = true;
+        }
+      });
+
+      async function createAndSendOffer() {
+        try {
+          const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true
+          });
+          await peerConnection.setLocalDescription(offer);
+          
+          socket.emit('offer', {
+            roomId: roomId,
+            offer: offer
+          });
+        } catch (e) {
+          console.error('Error creating offer:', e);
+        }
+      }
+
+      socket.on('offer', async (data) => {
+        try {
+          if (!peerConnection) {
+            await createPeerConnection();
+          }
+          
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+          
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription(answer);
+          
+          socket.emit('answer', {
+            roomId: roomId,
+            answer: answer
+          });
         } catch (e) {
           console.error('Error handling offer:', e);
         }
       });
 
-      // Handle answer from interviewee
-      socket.on('answer', async data => {
+      socket.on('answer', async (data) => {
         try {
-          if (isInterviewer && peerConnection) {
-            console.log('Received answer as interviewer');
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-          }
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
         } catch (e) {
           console.error('Error handling answer:', e);
         }
       });
 
-      // Handle ICE candidates
-      socket.on('ice_candidate', async data => {
+      socket.on('ice_candidate', async (data) => {
         try {
           if (peerConnection) {
             await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
           }
         } catch (e) {
-          console.error('Error adding ICE candidate:', e);
+          console.error('Error handling ICE candidate:', e);
         }
       });
 
-      // Video Toggle Logic for Interviewer
-      const toggleVideoInterviewer = document.getElementById('toggleVideoInterviewer');
-      if (toggleVideoInterviewer) {
-          toggleVideoInterviewer.addEventListener('click', () => {
-              const videoTrack = localStream.getVideoTracks()[0];
+      // Video/Audio control handlers
+      const toggleVideoBtn = document.getElementById(isInterviewer ? 'toggleVideoInterviewer' : 'toggleVideoInterviewee');
+      const toggleAudioBtn = document.getElementById(isInterviewer ? 'toggleAudioInterviewer' : 'toggleAudioInterviewee');
+
+      if (toggleVideoBtn) {
+        toggleVideoBtn.onclick = () => {
+          if (localStream) {
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
               videoTrack.enabled = !videoTrack.enabled;
-
-              const activeIcon = document.getElementById('videoActiveIcon');
-              const mutedIcon = document.getElementById('videoMutedIcon');
-              const mutedCross = document.getElementById('videoMutedCross');
-
-              if (videoTrack.enabled) {
-                  toggleVideoInterviewer.classList.remove('bg-red-600');
-                  toggleVideoInterviewer.classList.add('bg-blue-600');
-
-                  activeIcon.classList.remove('hidden');
-                  mutedIcon.classList.add('hidden');
-                  mutedCross.classList.add('hidden');
-
-                  videoToggleText.textContent = 'Disable Video';
-              } else {
-                  toggleVideoInterviewer.classList.remove('bg-blue-600');
-                  toggleVideoInterviewer.classList.add('bg-red-600');
-
-                  activeIcon.classList.add('hidden');
-                  mutedIcon.classList.remove('hidden');
-                  mutedCross.classList.remove('hidden');
-
-                  videoToggleText.textContent = 'Enable Video';
-              }
-          });
+              toggleVideoBtn.classList.toggle('bg-red-600');
+              toggleVideoBtn.classList.toggle('bg-blue-600');
+            }
+          }
+        };
       }
 
-      // Audio Toggle Logic for Interviewer
-      const toggleAudioInterviewer = document.getElementById('toggleAudioInterviewer');
-      if (toggleAudioInterviewer) {
-          toggleAudioInterviewer.addEventListener('click', () => {
-              const audioTrack = localStream.getAudioTracks()[0];
+      if (toggleAudioBtn) {
+        toggleAudioBtn.onclick = () => {
+          if (localStream) {
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
               audioTrack.enabled = !audioTrack.enabled;
-
-              const activeIcon = document.getElementById('audioActiveIcon');
-              const mutedIcon = document.getElementById('audioMutedIcon');
-              const muteCross = document.getElementById('audioMuteCross');
-
-              if (audioTrack.enabled) {
-                  toggleAudioInterviewer.classList.remove('bg-red-600');
-                  toggleAudioInterviewer.classList.add('bg-blue-600');
-
-                  activeIcon.classList.remove('hidden');
-                  mutedIcon.classList.add('hidden');
-                  muteCross.classList.add('hidden');
-
-                  audioToggleText.textContent = 'Mute Audio';
-              } else {
-                  toggleAudioInterviewer.classList.remove('bg-blue-600');
-                  toggleAudioInterviewer.classList.add('bg-red-600');
-
-                  activeIcon.classList.add('hidden');
-                  mutedIcon.classList.remove('hidden');
-                  muteCross.classList.remove('hidden');
-
-                  audioToggleText.textContent = 'Unmute Audio';
-              }
-          });
-      }
-
-      // Video Toggle Logic for Interviewee
-      const toggleVideoInterviewee = document.getElementById('toggleVideoInterviewee');
-      if (toggleVideoInterviewee) {
-          toggleVideoInterviewee.addEventListener('click', () => {
-              const localVideo = document.getElementById('localVideo');
-              localVideo.style.display = localVideo.style.display === 'none' ? 'block' : 'none';
-
-              toggleVideoInterviewee.classList.toggle('bg-red-600');
-              toggleVideoInterviewee.classList.toggle('bg-blue-600');
-          });
-      }
-
-      // Audio Toggle Logic for Interviewee
-      const toggleAudioInterviewee = document.getElementById('toggleAudioInterviewee');
-      if (toggleAudioInterviewee) {
-          toggleAudioInterviewee.addEventListener('click', () => {
-              const localVideo = document.getElementById('localVideo');
-              const audioTrack = localVideo.srcObject.getAudioTracks()[0];
-              audioTrack.enabled = !audioTrack.enabled;
-
-              toggleAudioInterviewee.classList.toggle('bg-red-600');
-              toggleAudioInterviewee.classList.toggle('bg-blue-600');
-          });
-      }
-
-      // Voice recognition setup
-      let recognition = null;
-      if ('webkitSpeechRecognition' in window) {
-          recognition = new webkitSpeechRecognition();
-          recognition.continuous = true;
-          recognition.interimResults = true;
-
-          recognition.onresult = function(event) {
-              const transcript = Array.from(event.results)
-                  .map(result => result[0])
-                  .map(result => result.transcript)
-                  .join('');
-
-              // Send transcript to server for analysis
-              socket.emit('voice_transcript', {
-                  roomId: roomId,
-                  transcript: transcript
-              });
-          };
-      }
-
-      // Voice control buttons
-      const startVoiceBtn = document.getElementById('startVoice');
-      const stopVoiceBtn = document.getElementById('stopVoice');
-
-      if (startVoiceBtn && stopVoiceBtn) {
-          startVoiceBtn.addEventListener('click', () => {
-              if (recognition) {
-                  recognition.start();
-                  startVoiceBtn.disabled = true;
-                  stopVoiceBtn.disabled = false;
-              }
-          });
-
-          stopVoiceBtn.addEventListener('click', () => {
-              if (recognition) {
-                  recognition.stop();
-                  startVoiceBtn.disabled = false;
-                  stopVoiceBtn.disabled = true;
-              }
-          });
-      }
-
-      // AI Question handling for interviewer
-      if (document.getElementById('getNextQuestion')) {
-          document.getElementById('getNextQuestion').addEventListener('click', () => {
-              socket.emit('get_ai_questions', {
-                  roomId: roomId,
-                  interviewDetails: interviewDetails,
-                  currentContext: document.getElementById('chat-messages')?.innerText || ''
-              });
-          });
-      }
-
-      // Handle AI question suggestions
-      socket.on('ai_questions', data => {
-          const aiQuestions = document.getElementById('aiQuestions');
-          aiQuestions.innerHTML = ''; // Clear previous questions
-
-          data.questions.forEach(question => {
-              const questionDiv = document.createElement('div');
-              questionDiv.className = 'p-4 bg-white dark:bg-gray-700 rounded-lg';
-              questionDiv.innerHTML = `
-                  <p class="font-medium text-lg mb-2">${question.text}</p>
-                  <div class="text-sm text-gray-600 dark:text-gray-400 flex justify-between">
-                      <span>Difficulty: ${question.difficulty}</span>
-                      <span>Topic: ${question.topic}</span>
-                  </div>
-              `;
-              aiQuestions.appendChild(questionDiv);
-          });
-      });
-
-      // Handle voice analysis results
-      socket.on('voice_analysis', data => {
-          const messagesDiv = document.getElementById('chat-messages');
-          const analysisDiv = document.createElement('div');
-          analysisDiv.className = 'my-2 p-2 bg-gray-100 dark:bg-gray-800 rounded';
-          analysisDiv.innerHTML = `
-              <p class="text-sm text-gray-600 dark:text-gray-400">Voice Analysis:</p>
-              <p>${data.analysis}</p>
-          `;
-          messagesDiv.appendChild(analysisDiv);
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      });
-
-      // Message handling
-      const messageForm = document.getElementById('messageForm');
-      const aiForm = document.getElementById('aiForm');
-      const messagesDiv = document.getElementById('chat-messages');
-
-      messageForm.onsubmit = (e) => {
-          e.preventDefault();
-          const input = document.getElementById('messageInput');
-          const message = input.value.trim();
-
-          if (message) {
-              socket.emit('send_message', {
-                  roomId: roomId,
-                  message: message
-              });
-              input.value = '';
+              toggleAudioBtn.classList.toggle('bg-red-600');
+              toggleAudioBtn.classList.toggle('bg-blue-600');
+            }
           }
-      };
-
-      aiForm.onsubmit = (e) => {
-          e.preventDefault();
-          const input = document.getElementById('aiPrompt');
-          const prompt = input.value.trim();
-
-          if (prompt) {
-              socket.emit('request_ai_help', {
-                  roomId: roomId,
-                  prompt: prompt
-              });
-              input.value = '';
-          }
-      };
-
-      socket.on('new_message', data => {
-          addMessage(data.user_name, data.message);
-      });
-
-      socket.on('ai_response', data => {
-          addMessage('AI Assistant', data.message, true);
-      });
-
-      function addMessage(userName, message, isAI = false) {
-          const div = document.createElement('div');
-          div.className = `message ${isAI ? 'ai-message' : ''}`;
-          div.innerHTML = `<strong>${userName}:</strong> ${message}`;
-          messagesDiv.appendChild(div);
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        };
       }
-
-      // Update the socket event handlers
-      socket.on('user_joined', data => {
-        console.log('User joined:', data);
-        if (data.connectionCount === 2) {
-          console.log('Both users present, starting connection');
-          if (isInterviewer) {
-            createPeerConnection();
-          }
-        }
-      });
-
-      // Initialize call when page loads
-      initializeCall();
-
-      // Add to existing script or create a new script block
-      {% if is_interviewer %}
-      let interviewDetails = {
-          role: 'frontend',
-          experienceLevel: 'intermediate',
-          primaryTechnology: ''
-      };
-
-      // Interview Details Modal Logic
-      const interviewDetailsModal = document.getElementById('interviewDetailsModal');
-      const getInterviewDetailsBtn = document.getElementById('getInterviewDetails');
-      const cancelInterviewDetailsBtn = document.getElementById('cancelInterviewDetails');
-      const saveInterviewDetailsBtn = document.getElementById('saveInterviewDetails');
-
-      getInterviewDetailsBtn.addEventListener('click', () => {
-          interviewDetailsModal.classList.remove('hidden');
-      });
-
-      cancelInterviewDetailsBtn.addEventListener('click', () => {
-          interviewDetailsModal.classList.add('hidden');
-      });
-
-      saveInterviewDetailsBtn.addEventListener('click', () => {
-          interviewDetails.role = document.getElementById('interviewRole').value;
-          interviewDetails.experienceLevel = document.getElementById('experienceLevel').value;
-          interviewDetails.primaryTechnology = document.getElementById('primaryTechnology').value;
-
-          interviewDetailsModal.classList.add('hidden');
-
-          // Optional: You might want to emit these details to the server or update UI
-          console.log('Interview Details Saved:', interviewDetails);
-      });
-
-      // Get Next Question Logic
-      document.getElementById('getNextQuestion').addEventListener('click', () => {
-          socket.emit('get_ai_questions', {
-              roomId: roomId,
-              interviewDetails: interviewDetails,
-              currentContext: document.getElementById('chat-messages')?.innerText || ''
-          });
-      });
-
-      // Handle AI question suggestions
-      socket.on('ai_questions', data => {
-          const aiQuestions = document.getElementById('aiQuestions');
-          aiQuestions.innerHTML = ''; // Clear previous questions
-
-          data.questions.forEach(question => {
-              const questionDiv = document.createElement('div');
-              questionDiv.className = 'p-4 bg-white dark:bg-gray-700 rounded-lg';
-              questionDiv.innerHTML = `
-                  <p class="font-medium text-lg mb-2">${question.text}</p>
-                  <div class="text-sm text-gray-600 dark:text-gray-400 flex justify-between">
-                      <span>Difficulty: ${question.difficulty}</span>
-                      <span>Topic: ${question.topic}</span>
-                  </div>
-              `;
-              aiQuestions.appendChild(questionDiv);
-          });
-      });
-      {% endif %}
     </script>
   </body>
 </html>
