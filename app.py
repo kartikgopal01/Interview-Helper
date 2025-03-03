@@ -522,40 +522,56 @@ def get_random_question():
 def submit_answer():
     try:
         data = request.get_json()
-        role = data.get('role', 'fullstack')
-        question = data.get('question', '')
-        answer = data.get('answer', '')
-        
-        if not question or not answer:
+        if not data:
             return jsonify({
-                'error': 'Question and answer are required'
+                'error': 'No data provided'
+            }), 400
+            
+        role = data.get('role', '')
+        question = data.get('question', '').strip()
+        answer = data.get('answer', '').strip()
+        
+        # Validate input
+        if not role:
+            return jsonify({
+                'error': 'Role is required'
+            }), 400
+            
+        if not question:
+            return jsonify({
+                'error': 'Question is required'
+            }), 400
+            
+        if not answer:
+            return jsonify({
+                'error': 'Answer is required'
             }), 400
             
         # Get assessment using the global model
-        model = genai.GenerativeModel('gemini-1.5-pro-latest')
-        prompt = f"""
-        Assess this technical interview answer for a {role} position.
-        
-        Question: {question}
-        
-        Answer: {answer}
-        
-        Provide a detailed assessment in JSON format:
-        {{
-            "score": <0-100>,
-            "strengths": ["strength1", "strength2", ...],
-            "improvements": ["improvement1", "improvement2", ...],
-            "feedback": "detailed feedback"
-        }}
-        
-        Base the assessment on:
-        1. Technical accuracy
-        2. Completeness of the answer
-        3. Clear explanation
-        4. Practical examples or use cases
-        """
-        
         try:
+            model = genai.GenerativeModel('gemini-1.5-pro-latest')
+            prompt = f"""
+            Assess this technical interview answer for a {role} position.
+            
+            Question: {question}
+            
+            Answer: {answer}
+            
+            Provide a detailed assessment in JSON format:
+            {{
+                "score": <0-100>,
+                "strengths": ["strength1", "strength2", ...],
+                "improvements": ["improvement1", "improvement2", ...],
+                "feedback": "detailed feedback"
+            }}
+            
+            Base the assessment on:
+            1. Technical accuracy
+            2. Completeness of the answer
+            3. Clear explanation
+            4. Practical examples or use cases
+            """
+            
             response = model.generate_content(prompt)
             if not response or not response.text:
                 raise ValueError("Empty response from model")
@@ -571,15 +587,16 @@ def submit_answer():
             text = text[start_idx:end_idx+1]
             assessment = json.loads(text)
             
-            # Validate assessment structure
-            if not isinstance(assessment.get('score'), (int, float)):
-                assessment['score'] = 70
-            if not isinstance(assessment.get('strengths'), list):
-                assessment['strengths'] = ["Basic understanding shown"]
-            if not isinstance(assessment.get('improvements'), list):
-                assessment['improvements'] = ["Add more detail"]
-            if not isinstance(assessment.get('feedback'), str):
-                assessment['feedback'] = "Answer shows basic understanding but needs more depth."
+            # Validate assessment structure and ensure proper types
+            assessment['score'] = int(float(assessment.get('score', 70)))
+            if assessment['score'] < 0:
+                assessment['score'] = 0
+            elif assessment['score'] > 100:
+                assessment['score'] = 100
+                
+            assessment['strengths'] = list(assessment.get('strengths', ["Basic understanding shown"]))
+            assessment['improvements'] = list(assessment.get('improvements', ["Add more detail"]))
+            assessment['feedback'] = str(assessment.get('feedback', "Answer shows basic understanding but needs more depth."))
                 
             # Store the assessment in the database
             assessment_record = {
