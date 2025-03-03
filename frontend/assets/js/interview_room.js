@@ -108,101 +108,109 @@ function setupEventHandlers(socket) {
 function setupQuestionButtons(socket) {
   // Find or create the question button container
   let questionButtonContainer = document.getElementById("question-button-container");
-  
   if (!questionButtonContainer) {
-    // Create the container if it doesn't exist
-    const controlsContainer = document.querySelector(".controls");
-    if (controlsContainer) {
-      questionButtonContainer = document.createElement("div");
-      questionButtonContainer.id = "question-button-container";
-      questionButtonContainer.className = "mt-4 flex justify-center";
-      controlsContainer.parentNode.insertBefore(questionButtonContainer, controlsContainer.nextSibling);
+    questionButtonContainer = document.createElement("div");
+    questionButtonContainer.id = "question-button-container";
+    questionButtonContainer.className = "flex items-center mb-4";
+    
+    const chatInput = document.getElementById("chat-input");
+    if (chatInput) {
+      chatInput.parentNode.insertBefore(questionButtonContainer, chatInput);
     }
   }
   
-  if (questionButtonContainer) {
-    // Create the get question button
-    const getQuestionButton = document.createElement("button");
-    getQuestionButton.id = "getQuestionBtn";
-    getQuestionButton.className = "px-4 py-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700 transition-all duration-300";
+  // Create get question button if it doesn't exist
+  let getQuestionButton = document.getElementById("getNextQuestion");
+  if (!getQuestionButton) {
+    getQuestionButton = document.createElement("button");
+    getQuestionButton.id = "getNextQuestion";
+    getQuestionButton.className = "bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors duration-200";
     getQuestionButton.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       Get Interview Question
     `;
+  }
+  
+  // Add event listener to the button
+  getQuestionButton.addEventListener("click", () => {
+    // Get the current conversation context
+    const messagesDiv = document.getElementById("chat-messages");
+    const messages = messagesDiv?.innerText || "";
+    const context = messages.slice(-500); // Use last 500 chars as context
     
-    // Add event listener to the button
-    getQuestionButton.addEventListener("click", () => {
-      // Get the current conversation context
-      const messagesDiv = document.getElementById("chat-messages");
-      const messages = messagesDiv?.innerText || "";
-      const context = messages.slice(-500); // Use last 500 chars as context
-      
-      // Get the selected role
-      const roleSelect = document.getElementById("roleSelect");
-      const role = roleSelect?.value || "Software Engineer";
-      
-      // Request a question from the server
-      socket.emit("get_next_question", {
-        roomId: document.body.dataset.roomId,
-        currentContext: context,
-        role: role
-      });
-      
-      // Show loading state
-      getQuestionButton.disabled = true;
-      getQuestionButton.innerHTML = `
-        <svg class="animate-spin h-5 w-5 mr-1 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        Loading...
-      `;
-      
-      // Reset button after 3 seconds
-      setTimeout(() => {
-        getQuestionButton.disabled = false;
-        getQuestionButton.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Get Interview Question
-        `;
-      }, 3000);
+    // Get the selected role
+    const roleSelect = document.getElementById("roleSelect");
+    const role = roleSelect?.value || "Software Engineer"; // Default to first role in questions.json
+    
+    // Request a question from the server
+    socket.emit("get_next_question", {
+      roomId: document.body.dataset.roomId,
+      currentContext: context,
+      role: role
     });
     
-    // Add the button to the container
-    questionButtonContainer.appendChild(getQuestionButton);
+    // Show loading state
+    getQuestionButton.disabled = true;
+    getQuestionButton.innerHTML = `
+      <svg class="animate-spin h-5 w-5 mr-1 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      Loading...
+    `;
     
-    // Create role select if it doesn't exist
-    if (!document.getElementById("roleSelect")) {
-      const roleSelect = document.createElement("select");
-      roleSelect.id = "roleSelect";
-      roleSelect.className = "ml-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
-      
-      // Add role options
-      const roles = [
-        "Software Engineer",
-        "Data Scientist",
-        "AI/ML Engineer",
-        "Cloud Engineer",
-        "Cybersecurity Analyst",
-        "Frontend Developer",
-        "Backend Developer",
-        "DevOps Engineer"
-      ];
-      
-      roles.forEach(role => {
-        const option = document.createElement("option");
-        option.value = role;
-        option.textContent = role;
-        roleSelect.appendChild(option);
+    // Reset button after 3 seconds
+    setTimeout(() => {
+      getQuestionButton.disabled = false;
+      getQuestionButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Get Interview Question
+      `;
+    }, 3000);
+  });
+  
+  // Add the button to the container
+  questionButtonContainer.appendChild(getQuestionButton);
+  
+  // Create role select if it doesn't exist
+  if (!document.getElementById("roleSelect")) {
+    const roleSelect = document.createElement("select");
+    roleSelect.id = "roleSelect";
+    roleSelect.className = "ml-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+    
+    // Add default option
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "Select a role";
+    roleSelect.appendChild(defaultOption);
+    
+    // Load roles from questions.json
+    fetch("../assets/questions.json")
+      .then(response => response.json())
+      .then(data => {
+        data.job_roles.forEach(jobRole => {
+          const option = document.createElement("option");
+          option.value = jobRole.role;
+          option.textContent = jobRole.role;
+          roleSelect.appendChild(option);
+        });
+        
+        // Set default to first role
+        if (data.job_roles.length > 0) {
+          roleSelect.value = data.job_roles[0].role;
+        }
+      })
+      .catch(error => {
+        console.error("Error loading roles:", error);
+        roleSelect.innerHTML = '<option value="">Error loading roles</option>';
       });
-      
-      // Add the select to the container
-      questionButtonContainer.appendChild(roleSelect);
-    }
+    
+    // Add the select to the container
+    questionButtonContainer.appendChild(roleSelect);
   }
 }
 

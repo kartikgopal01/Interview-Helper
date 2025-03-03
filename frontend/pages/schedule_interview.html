@@ -84,14 +84,12 @@
                 >
                 <select
                   name="required_role"
+                  id="required_role"
                   required
                   class="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   title="Select the required role"
                 >
-                  <option value="frontend">Frontend Developer</option>
-                  <option value="backend">Backend Developer</option>
-                  <option value="fullstack">Full Stack Developer</option>
-                  <option value="other">Other</option>
+                  <option value="">Select a role</option>
                 </select>
               </div>
               <div class="form-group">
@@ -185,6 +183,7 @@
     </section>
 
     <script>
+      // Role selection handling
       document
         .getElementById("roleSelect")
         .addEventListener("change", function () {
@@ -193,6 +192,28 @@
             isInterviewer ? "block" : "none";
           document.getElementById("intervieweeFields").style.display =
             isInterviewer ? "none" : "block";
+        });
+
+      // Load roles from questions.json
+      fetch("../assets/questions.json")
+        .then((response) => response.json())
+        .then((data) => {
+          const requiredRoleSelect = document.getElementById("required_role");
+          data.job_roles.forEach((jobRole) => {
+            const option = document.createElement("option");
+            option.value = jobRole.role;
+            option.textContent = jobRole.role;
+            requiredRoleSelect.appendChild(option);
+          });
+          // Set default to first role if available
+          if (data.job_roles.length > 0) {
+            requiredRoleSelect.value = data.job_roles[0].role;
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading roles:", error);
+          const requiredRoleSelect = document.getElementById("required_role");
+          requiredRoleSelect.innerHTML = '<option value="">Error loading roles</option>';
         });
     </script>
   </body>

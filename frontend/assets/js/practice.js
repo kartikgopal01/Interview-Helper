@@ -20,45 +20,44 @@ document.addEventListener("DOMContentLoaded", function () {
   // Check AI service status on load
   checkAiStatus();
 
-  // Load roles into select
-  fetch("/assets/questions.json")
+  // Load roles into select from questions.json
+  const roleSelect = document.getElementById("roleSelect");
+  roleSelect.innerHTML = '<option value="">Select a role</option>'; // Clear any existing options
+  
+  fetch("../assets/questions.json")
     .then((response) => response.json())
     .then((data) => {
-      const roleSelect = document.getElementById("roleSelect");
-      data.job_roles.forEach((role) => {
+      data.job_roles.forEach((jobRole) => {
         const option = document.createElement("option");
-        option.value = role.role;
-        option.textContent = role.role;
+        option.value = jobRole.role_name;
+        option.textContent = jobRole.role_name;
         roleSelect.appendChild(option);
       });
+    })
+    .catch((error) => {
+      console.error("Error loading roles:", error);
+      roleSelect.innerHTML = '<option value="">Error loading roles</option>';
     });
 
   // Event Listeners
-  document
-    .getElementById("roleSelect")
-    .addEventListener("change", function() {
-      // Reset previous questions when role changes
-      previousQuestions = [];
-      loadNewQuestion();
-    });
+  roleSelect.addEventListener("change", function() {
+    previousQuestions = [];
+    loadNewQuestion();
+  });
+  
   submitButton.addEventListener("click", handleSubmit);
-  document
-    .getElementById("nextQuestion")
-    .addEventListener("click", function() {
-      // Disable the button temporarily to prevent multiple clicks
-      const nextButton = document.getElementById("nextQuestion");
-      nextButton.disabled = true;
-      nextButton.classList.add("opacity-50");
-      
-      // Load new question
-      loadNewQuestion();
-      
-      // Re-enable the button after a short delay
-      setTimeout(() => {
-        nextButton.disabled = false;
-        nextButton.classList.remove("opacity-50");
-      }, 1000);
-    });
+  
+  document.getElementById("nextQuestion").addEventListener("click", function() {
+    const nextButton = this;
+    nextButton.disabled = true;
+    nextButton.classList.add("opacity-50");
+    loadNewQuestion();
+    setTimeout(() => {
+      nextButton.disabled = false;
+      nextButton.classList.remove("opacity-50");
+    }, 1000);
+  });
+
   document.getElementById("closeModal").addEventListener("click", () => {
     assessmentModal.classList.add("hidden");
   });
@@ -191,18 +190,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function loadNewQuestion() {
     const role = document.getElementById("roleSelect").value;
-    if (!role) return;
+    if (!role) {
+      currentQuestionElement.textContent = "Please select a role first";
+      questionArea.classList.add("hidden");
+      return;
+    }
 
     // Show loading state
     questionArea.classList.add("opacity-50");
     currentQuestionElement.textContent = "Loading question...";
     
-    // Fetch questions from the JSON file instead of the server endpoint
-    fetch("/assets/questions.json")
+    // Fetch questions from the JSON file
+    fetch("../assets/questions.json")
       .then((response) => response.json())
       .then((data) => {
-        // Find the selected role
-        const roleData = data.job_roles.find(r => r.role === role);
+        // Find the selected role in job_roles array
+        const roleData = data.job_roles.find(r => r.role_name === role);
         
         if (roleData && roleData.questions && roleData.questions.length > 0) {
           // Get available questions (excluding previously shown ones)
@@ -231,37 +234,31 @@ document.addEventListener("DOMContentLoaded", function () {
           answerInput.value = "";
         } else {
           console.error("No questions found for the selected role");
-          alert("No questions found for the selected role. Please try another role.");
+          currentQuestionElement.textContent = "No questions found for the selected role. Please try another role.";
+          questionArea.classList.remove("opacity-50");
           questionArea.classList.add("hidden");
         }
       })
       .catch((error) => {
         console.error("Error loading questions:", error);
-        alert("Failed to load questions. Please try again.");
+        currentQuestionElement.textContent = "Failed to load questions. Please try again.";
         questionArea.classList.remove("opacity-50");
         questionArea.classList.add("hidden");
       });
   }
 
   function handleSubmit() {
-    const role = document.getElementById("roleSelect").value;
-    const answer = answerInput.value;
-
-    if (!role) {
-      alert("Please select a role first");
-      return;
-    }
-
-    if (!answer.trim()) {
-      alert("Please provide an answer");
+    if (!currentQuestion || !answerInput.value.trim()) {
       return;
     }
 
     // Show loading state
     submitButton.disabled = true;
     spinner.classList.remove("hidden");
-    submitAnswerText.textContent = "Analyzing...";
+    submitAnswerText.textContent = "Submitting...";
 
+    const role = document.getElementById("roleSelect").value;
+    
     fetch("/submit-answer", {
       method: "POST",
       headers: {
@@ -270,58 +267,46 @@ document.addEventListener("DOMContentLoaded", function () {
       body: JSON.stringify({
         role: role,
         question: currentQuestion,
-        answer: answer,
+        answer: answerInput.value.trim(),
       }),
     })
-      .then(async (response) => {
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
+      .then((response) => response.json())
       .then((data) => {
-        if (data.success && data.assessment) {
-          displayAssessment(data.assessment);
-          loadAnalytics();
-          
-          // Check if we're using fallback assessment
-          if (data.assessment.score === 70 && 
-              data.assessment.strengths[0] === 'Shows basic understanding of concepts') {
-            // Likely using fallback, check AI status
-            checkAiStatus();
-          }
-        } else {
-          throw new Error(data.message || "Failed to get assessment");
+        if (data.error) {
+          throw new Error(data.error);
         }
+        
+        // Update modal content
+        document.getElementById("score").textContent = data.score;
+        document.getElementById("feedback").textContent = data.feedback;
+        
+        // Update strengths list
+        const strengthsList = document.getElementById("strengths");
+        strengthsList.innerHTML = "";
+        data.strengths.forEach((strength) => {
+          const li = document.createElement("li");
+          li.textContent = strength;
+          strengthsList.appendChild(li);
+        });
+        
+        // Update improvements list
+        const improvementsList = document.getElementById("improvements");
+        improvementsList.innerHTML = "";
+        data.improvements.forEach((improvement) => {
+          const li = document.createElement("li");
+          li.textContent = improvement;
+          improvementsList.appendChild(li);
+        });
+        
+        // Show modal
+        assessmentModal.classList.remove("hidden");
       })
       .catch((error) => {
         console.error("Error submitting answer:", error);
-        
-        // Show error in a more user-friendly way
-        const errorMessage = error.message || "Unknown error";
-        
-        if (errorMessage.includes("AI assessment service is not available") || 
-            errorMessage.includes("Error processing submission")) {
-          // Show AI service error with option to reinitialize
-          const confirmReinitialize = confirm(
-            "There was an issue with the AI service: " + errorMessage + 
-            "\n\nWould you like to try reinitializing the AI service?"
-          );
-          
-          if (confirmReinitialize) {
-            reinitializeAi();
-          }
-        } else {
-          // Show regular error
-          alert(`Failed to submit answer: ${errorMessage}`);
-        }
-        
-        // Check AI status after error
-        checkAiStatus();
+        alert("Failed to submit answer. Please try again.");
       })
       .finally(() => {
-        // Reset loading state
+        // Reset button state
         submitButton.disabled = false;
         spinner.classList.add("hidden");
         submitAnswerText.textContent = "Submit Answer";

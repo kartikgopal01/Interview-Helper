@@ -1,0 +1,118 @@
+{
+  "roles": {
+    "frontend": {
+      "questions": [
+        {
+          "question": "Explain the difference between let, const, and var in JavaScript.",
+          "expected_topics": ["scope", "hoisting", "block scope", "variable declaration"],
+          "assessment_criteria": {
+            "basic": "Mentions basic differences in scope",
+            "intermediate": "Explains hoisting and temporal dead zone",
+            "advanced": "Discusses use cases and best practices"
+          }
+        },
+        {
+          "question": "What is the virtual DOM in React and how does it work?",
+          "expected_topics": ["virtual DOM", "reconciliation", "rendering", "performance"],
+          "assessment_criteria": {
+            "basic": "Defines virtual DOM concept",
+            "intermediate": "Explains reconciliation process",
+            "advanced": "Discusses performance implications and optimization"
+          }
+        },
+        {
+          "question": "Explain CSS specificity and the cascade.",
+          "expected_topics": ["specificity", "cascade", "selectors", "inheritance"],
+          "assessment_criteria": {
+            "basic": "Understands basic specificity rules",
+            "intermediate": "Can explain specificity calculation",
+            "advanced": "Discusses edge cases and best practices"
+          }
+        }
+      ]
+    },
+    "backend": {
+      "questions": [
+        {
+          "question": "Explain RESTful API design principles.",
+          "expected_topics": ["REST", "HTTP methods", "resources", "stateless"],
+          "assessment_criteria": {
+            "basic": "Lists basic HTTP methods",
+            "intermediate": "Explains REST principles",
+            "advanced": "Discusses scalability and security"
+          }
+        },
+        {
+          "question": "What is database indexing and when should you use it?",
+          "expected_topics": ["indexing", "performance", "query optimization", "trade-offs"],
+          "assessment_criteria": {
+            "basic": "Defines indexing concept",
+            "intermediate": "Explains types of indexes",
+            "advanced": "Discusses performance implications"
+          }
+        },
+        {
+          "question": "Explain the concept of dependency injection.",
+          "expected_topics": ["DI", "IoC", "coupling", "testing"],
+          "assessment_criteria": {
+            "basic": "Defines dependency injection",
+            "intermediate": "Explains benefits and patterns",
+            "advanced": "Discusses implementation strategies"
+          }
+        }
+      ]
+    },
+    "fullstack": {
+      "questions": [
+        {
+          "question": "Compare SQL and NoSQL databases.",
+          "expected_topics": ["SQL", "NoSQL", "scalability", "use cases"],
+          "assessment_criteria": {
+            "basic": "Lists basic differences",
+            "intermediate": "Explains use cases",
+            "advanced": "Discusses scaling strategies"
+          }
+        },
+        {
+          "question": "Explain JWT authentication and its security implications.",
+          "expected_topics": ["JWT", "authentication", "security", "tokens"],
+          "assessment_criteria": {
+            "basic": "Defines JWT structure",
+            "intermediate": "Explains token handling",
+            "advanced": "Discusses security considerations"
+          }
+        },
+        {
+          "question": "How do you optimize website performance?",
+          "expected_topics": ["optimization", "caching", "lazy loading", "bundling"],
+          "assessment_criteria": {
+            "basic": "Lists basic optimization techniques",
+            "intermediate": "Explains implementation methods",
+            "advanced": "Discusses measuring and monitoring"
+          }
+        }
+      ]
+    }
+  },
+  "assessment_rules": {
+    "scoring": {
+      "topic_coverage": {
+        "weight": 0.4,
+        "description": "How many expected topics were covered"
+      },
+      "depth": {
+        "weight": 0.3,
+        "description": "Level of detail and understanding shown"
+      },
+      "clarity": {
+        "weight": 0.3,
+        "description": "How well the concepts were explained"
+      }
+    },
+    "feedback_templates": {
+      "excellent": "Excellent answer! You demonstrated strong understanding of {topics}.",
+      "good": "Good answer. You covered {topics} well, but could expand on {missing_topics}.",
+      "needs_improvement": "Consider studying more about {missing_topics} to improve your understanding."
+    }
+  }
+} 

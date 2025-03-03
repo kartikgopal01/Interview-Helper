@@ -1,0 +1,64 @@
+async function getQuestions() {
+    try {
+        const role = document.getElementById('roleSelect').value;
+        const context = document.getElementById('chatMessages').innerText;
+        
+        // Load questions from questions.json
+        const response = await fetch('../assets/questions.json');
+        const data = await response.json();
+        
+        // Find the role in job_roles array
+        const roleData = data.job_roles.find(r => r.role === role);
+        
+        if (roleData && roleData.questions && roleData.questions.length > 0) {
+            const questionsContainer = document.getElementById('questionsContainer');
+            questionsContainer.innerHTML = ''; // Clear existing questions
+            
+            // Get 5 random questions
+            const selectedQuestions = [];
+            const questions = [...roleData.questions]; // Create a copy of questions array
+            
+            for (let i = 0; i < Math.min(5, questions.length); i++) {
+                const randomIndex = Math.floor(Math.random() * questions.length);
+                selectedQuestions.push(questions.splice(randomIndex, 1)[0]);
+            }
+            
+            selectedQuestions.forEach((question, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question-item mb-3 p-3 border rounded';
+                const escapedQuestion = question.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                questionDiv.innerHTML = `
+                    <h5 class="mb-2">Question ${index + 1}</h5>
+                    <p class="mb-2">${question}</p>
+                    <button class="btn btn-sm btn-primary ask-question-btn">
+                        Ask This Question
+                    </button>
+                `;
+                const button = questionDiv.querySelector('.ask-question-btn');
+                button.addEventListener('click', () => askQuestion(escapedQuestion));
+                questionsContainer.appendChild(questionDiv);
+            });
+            
+            questionsContainer.style.display = 'block';
+        } else {
+            // Show error message if no questions found
+            const questionsContainer = document.getElementById('questionsContainer');
+            questionsContainer.innerHTML = '<div class="alert alert-warning">No questions found for the selected role. Please try another role.</div>';
+            questionsContainer.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        // Show error message
+        const questionsContainer = document.getElementById('questionsContainer');
+        questionsContainer.innerHTML = '<div class="alert alert-danger">Failed to load questions. Please try again.</div>';
+        questionsContainer.style.display = 'block';
+    }
+}
+
+// Add this function to handle asking a question
+function askQuestion(question) {
+    const messageInput = document.getElementById('messageInput');
+    messageInput.value = question;
+    // Focus the input
+    messageInput.focus();
+} 

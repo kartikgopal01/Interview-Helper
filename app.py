@@ -21,9 +21,13 @@ import warnings
 from gemini_config import init_gemini, create_assessment_chain, create_question_chain, init_vector_store, get_similar_questions, check_ai_services_status
 import atexit
 import google.generativeai as genai
+import sys
+import random
+from pathlib import Path
+import requests
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)  # Change from INFO to WARNING
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -81,16 +85,20 @@ socketio = SocketIO(
 logging.getLogger('gevent').setLevel(logging.ERROR)
 logging.getLogger('engineio').setLevel(logging.ERROR)
 logging.getLogger('socketio').setLevel(logging.ERROR)
+logging.getLogger('werkzeug').setLevel(logging.ERROR)  # Suppress Flask development server logs
+logging.getLogger('sentence_transformers').setLevel(logging.ERROR)  # Suppress transformer logs
 
 # Suppress specific warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*Invalid HTTP method.*")
+warnings.filterwarnings("ignore", message=".*HuggingFaceEmbeddings.*")  # Suppress HuggingFace warning
 
 # Optional: Create a custom filter to ignore specific log messages
 class SocketHandshakeFilter(logging.Filter):
     def filter(self, record):
         return not ('Invalid HTTP method' in record.getMessage() or 
-                    'SSL/TLS handshake' in record.getMessage())
+                   'SSL/TLS handshake' in record.getMessage() or
+                   'HuggingFaceEmbeddings' in record.getMessage())
 
 # Apply the filter to your logger
 logger.addFilter(SocketHandshakeFilter())
@@ -427,179 +435,185 @@ def practice():
     return render_template('pages/practice.html', 
         isLoggedIn='true' if is_logged_in else 'false')
 
-@app.route('/get-random-question', methods=['GET'])
-@login_required
-def get_random_question():
+def load_question_bank():
     try:
-        role = request.args.get('role', 'general')
-        level = request.args.get('level', 'intermediate')
-        technology = request.args.get('technology', 'general')
-        
-        # Define a fallback question
-        fallback_question = {
-            'question': f"Explain the key skills and technologies required for a {role} role.",
-            'expected_topics': ["technical skills", "soft skills", "industry knowledge"],
-            'difficulty': "medium",
-            'ideal_answer_points': [
-                "Technical expertise in relevant technologies",
-                "Problem-solving approach",
-                "Communication and teamwork"
-            ]
-        }
-        
-        # Only try AI question generation if the chain is available
-        if question_chain is not None:
-            max_retries = 2
-            for attempt in range(max_retries + 1):
-                try:
-                    # Generate question using Ollama
-                    result = question_chain.run({
-                        'role': role,
-                        'level': level,
-                        'technology': technology
-                    })
-                    
-                    # Parse the response
-                    question_data = json.loads(result)
-                    
-                    # Validate required fields
-                    if 'question' not in question_data:
-                        raise ValueError("Generated question is missing required fields")
-                    
-                    logger.info(f"Successfully generated question on attempt {attempt + 1}")
-                    
-                    # Return the AI-generated question
-                    return jsonify({
-                        'success': True,
-                        'question': question_data['question'],
-                        'expected_topics': question_data.get('expected_topics', []),
-                        'difficulty': question_data.get('difficulty', 'medium'),
-                        'ideal_answer_points': question_data.get('ideal_answer_points', [])
-                    })
-                    
-                except Exception as e:
-                    logger.error(f"Error generating question (attempt {attempt + 1}/{max_retries + 1}): {str(e)}")
-                    if attempt < max_retries:
-                        logger.info(f"Retrying question generation... ({attempt + 1}/{max_retries})")
-                        time.sleep(1)  # Wait before retrying
-                    else:
-                        logger.error("All retry attempts failed, using fallback question")
-        else:
-            logger.warning("Question chain not available, using fallback question")
-        
-        # If we get here, use the fallback question
-        return jsonify({
-            'success': True,
-            'question': fallback_question['question'],
-            'expected_topics': fallback_question['expected_topics'],
-            'difficulty': fallback_question['difficulty'],
-            'ideal_answer_points': fallback_question['ideal_answer_points']
-        })
-        
+        question_bank_path = os.path.join('frontend', 'assets', 'question_bank.json')
+        if not os.path.exists(question_bank_path):
+            logger.error(f"Question bank file not found at {question_bank_path}")
+            return None
+            
+        with open(question_bank_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
     except Exception as e:
-        logger.error(f"Error in question generation endpoint: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logger.error(f"Error loading question bank: {str(e)}")
+        return None
+
+def get_random_question_from_bank(role='Software Engineer'):  # Default to first role in questions.json
+    try:
+        # Load questions from questions.json
+        with open('frontend/assets/questions.json', 'r') as f:
+            questions_data = json.load(f)
+            
+        # Find the role in job_roles array
+        role_data = next((r for r in questions_data['job_roles'] if r['role'] == role), None)
+        
+        if role_data and role_data['questions']:
+            # Select a random question
+            selected_question = random.choice(role_data['questions'])
+            return {
+                'question': selected_question,
+                'topics': ['technical', 'interview']
+            }
+        else:
+            # If role not found, use first role as default (Software Engineer)
+            default_role = questions_data['job_roles'][0]  # Software Engineer
+            selected_question = random.choice(default_role['questions'])
+            return {
+                'question': selected_question,
+                'topics': ['technical', 'interview']
+            }
+            
+    except Exception as e:
+        logger.error(f"Error getting random question: {str(e)}")
+        return {
+            'question': "Error loading questions. Please try again.",
+            'topics': ['error']
+        }
+
+def get_default_role():
+    try:
+        with open('frontend/assets/questions.json', 'r') as f:
+            data = json.load(f)
+            if data.get('job_roles') and len(data['job_roles']) > 0:
+                return data['job_roles'][0]['role_name']
+    except Exception as e:
+        print(f"Error loading default role: {e}")
+    return None
+
+@app.route('/get-random-question', methods=['GET'])
+def get_random_question():
+    role = request.args.get('role') or get_default_role()
+    if not role:
+        return jsonify({'error': 'No role specified and no default role available'}), 400
+
+    try:
+        with open('frontend/assets/questions.json', 'r') as f:
+            data = json.load(f)
+            
+        # Find the role in job_roles
+        role_data = next((r for r in data['job_roles'] if r['role_name'] == role), None)
+        if not role_data or not role_data.get('questions'):
+            # If role not found or has no questions, use first available role
+            role_data = data['job_roles'][0]
+            
+        questions = role_data.get('questions', [])
+        if not questions:
+            return jsonify({'error': 'No questions available for this role'}), 404
+            
+        question = random.choice(questions)
+        return jsonify({'question': question})
+            
+    except Exception as e:
+        print(f"Error getting random question: {e}")
+        return jsonify({'error': 'Failed to get question'}), 500
 
 @app.route('/submit-answer', methods=['POST'])
 @login_required
 def submit_answer():
     try:
-        data = request.json
-        if not data:
-            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        data = request.get_json()
+        role = data.get('role', 'fullstack')
+        question = data.get('question', '')
+        answer = data.get('answer', '')
         
-        role = data.get('role')
-        question = data.get('question')
-        answer = data.get('answer')
+        if not question or not answer:
+            return jsonify({
+                'error': 'Question and answer are required'
+            }), 400
+            
+        # Get assessment using the global model
+        model = genai.GenerativeModel('gemini-1.5-pro-latest')
+        prompt = f"""
+        Assess this technical interview answer for a {role} position.
         
-        if not all([role, question, answer]):
-            return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+        Question: {question}
         
-        # Define a fallback assessment to use if AI fails
-        fallback_assessment = {
-            'score': 70,
-            'strengths': [
-                'Shows basic understanding of concepts',
-                'Attempts to provide explanation',
-                'Demonstrates problem-solving approach'
-            ],
-            'improvements': [
-                'Add more technical details',
-                'Include practical examples',
-                'Structure answer more clearly'
-            ],
-            'feedback': 'Your answer demonstrates foundational knowledge but could benefit from more specific examples and technical depth.'
-        }
+        Answer: {answer}
         
-        # Initialize assessment with fallback
-        assessment = fallback_assessment.copy()
+        Provide a detailed assessment in JSON format:
+        {{
+            "score": <0-100>,
+            "strengths": ["strength1", "strength2", ...],
+            "improvements": ["improvement1", "improvement2", ...],
+            "feedback": "detailed feedback"
+        }}
         
-        # Only try AI assessment if the chain is available
-        if assessment_chain is not None:
-            max_retries = 2
-            for attempt in range(max_retries + 1):
-                try:
-                    # Get assessment from Ollama
-                    result = assessment_chain.run({
-                        'role': role,
-                        'question': question,
-                        'answer': answer
-                    })
-                    
-                    # Parse the response
-                    ai_assessment = json.loads(result)
-                    
-                    # Validate assessment structure
-                    required_keys = ['score', 'strengths', 'improvements', 'feedback']
-                    if not all(key in ai_assessment for key in required_keys):
-                        raise ValueError("Missing required assessment fields")
-                    
-                    # Ensure score is an integer between 0 and 100
-                    ai_assessment['score'] = max(0, min(100, int(float(ai_assessment['score']))))
-                    
-                    # Ensure strengths and improvements are lists
-                    if isinstance(ai_assessment['strengths'], str):
-                        ai_assessment['strengths'] = [s.strip() for s in ai_assessment['strengths'].split(',')]
-                    if isinstance(ai_assessment['improvements'], str):
-                        ai_assessment['improvements'] = [i.strip() for i in ai_assessment['improvements'].split(',')]
-                    
-                    # Use the AI assessment instead of fallback
-                    assessment = ai_assessment
-                    logger.info(f"Successfully generated AI assessment on attempt {attempt + 1}")
-                    break
-                    
-                except Exception as e:
-                    logger.error(f"Error processing AI response (attempt {attempt + 1}/{max_retries + 1}): {str(e)}")
-                    if attempt < max_retries:
-                        logger.info(f"Retrying assessment generation... ({attempt + 1}/{max_retries})")
-                        time.sleep(1)  # Wait before retrying
-                    else:
-                        logger.error("All retry attempts failed, using fallback assessment")
-        else:
-            logger.warning("Assessment chain not available, using fallback assessment")
+        Base the assessment on:
+        1. Technical accuracy
+        2. Completeness of the answer
+        3. Clear explanation
+        4. Practical examples or use cases
+        """
         
-        # Store the assessment
-        assessment_data = {
-            'user_id': current_user.id,
-            'role': role,
-            'question': question,
-            'answer': answer,
-            'assessment': assessment,
-            'created_at': datetime.now(timezone.utc)
-        }
-        
-        mongo.db.assessments.insert_one(assessment_data)
-        
-        return jsonify({
-            'success': True,
-            'assessment': assessment
-        })
-        
+        try:
+            response = model.generate_content(prompt)
+            if not response or not response.text:
+                raise ValueError("Empty response from model")
+                
+            # Parse the response text as JSON
+            text = response.text.strip()
+            start_idx = text.find('{')
+            end_idx = text.rfind('}')
+            
+            if start_idx == -1 or end_idx == -1:
+                raise ValueError("Invalid JSON response from model")
+                
+            text = text[start_idx:end_idx+1]
+            assessment = json.loads(text)
+            
+            # Validate assessment structure
+            if not isinstance(assessment.get('score'), (int, float)):
+                assessment['score'] = 70
+            if not isinstance(assessment.get('strengths'), list):
+                assessment['strengths'] = ["Basic understanding shown"]
+            if not isinstance(assessment.get('improvements'), list):
+                assessment['improvements'] = ["Add more detail"]
+            if not isinstance(assessment.get('feedback'), str):
+                assessment['feedback'] = "Answer shows basic understanding but needs more depth."
+                
+            # Store the assessment in the database
+            assessment_record = {
+                'user_id': current_user.id,
+                'role': role,
+                'question': question,
+                'answer': answer,
+                'assessment': assessment,
+                'timestamp': datetime.now(timezone.utc)
+            }
+            
+            mongo.db.assessments.insert_one(assessment_record)
+            
+            return jsonify(assessment)
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing error: {str(e)}")
+            return jsonify({
+                'error': 'Failed to parse assessment response',
+                'details': str(e)
+            }), 500
+            
+        except Exception as e:
+            logger.error(f"Model error: {str(e)}")
+            return jsonify({
+                'error': 'Failed to get assessment from model',
+                'details': str(e)
+            }), 500
+            
     except Exception as e:
-        logger.error(f"Error processing submission: {str(e)}")
+        logger.error(f"Error assessing answer: {str(e)}")
         return jsonify({
-            'success': False,
-            'message': f"Error processing submission: {str(e)}"
+            'error': 'Failed to process assessment request',
+            'details': str(e)
         }), 500
 
 @app.route('/practice-analytics')
@@ -647,45 +661,62 @@ def get_interview_questions_route(interview_id):
         role = data.get('role', 'general')
         context = data.get('context', '')  # Previous conversation context
         
-        # Use vector search to find relevant questions
+        # First try to get questions from vector store
+        questions = []
         if vector_store and context:
-            questions = get_similar_questions(vector_store, context, role)
-            if questions:
-                return jsonify({
-                    'success': True,
-                    'questions': questions[:3]  # Return top 3 questions
-                })
-        
-        # Fallback to predefined questions if vector search fails
-        questions = get_interview_questions(role)
-        
-        # Use Gemini to customize questions based on context
-        if context:
-            prompt = f"""
-            Based on this interview context: "{context}"
-            And considering these base questions: {questions}
-            Suggest 3 relevant follow-up technical questions.
-            Format the response as a JSON array of questions.
-            """
-            
-            ai_suggestions = get_ai_assistance(prompt)
             try:
-                # Try to parse AI response as JSON
-                import json
-                suggested_questions = json.loads(ai_suggestions)
-                questions = suggested_questions
-            except:
-                # Fallback to predefined questions if AI response isn't valid JSON
-                pass
+                questions = get_similar_questions(vector_store, context, role)
+            except Exception as e:
+                logger.error(f"Vector store error: {str(e)}")
+                # Continue to fallback if vector store fails
         
+        # If no questions from vector store, use predefined questions
+        if not questions:
+            questions = get_interview_questions(role)
+            
+            # If we have context, try to use Gemini to customize questions
+            if context:
+                try:
+                    prompt = f"""
+                    Based on this interview context: "{context}"
+                    And considering these base questions: {questions}
+                    Suggest 3 relevant follow-up technical questions.
+                    Format the response as a JSON array of questions.
+                    """
+                    
+                    ai_suggestions = get_ai_assistance(prompt)
+                    suggested_questions = json.loads(ai_suggestions)
+                    if suggested_questions and isinstance(suggested_questions, list):
+                        questions = suggested_questions
+                except Exception as e:
+                    logger.error(f"AI suggestion error: {str(e)}")
+                    # Continue with predefined questions if AI fails
+        
+        # Ensure we have at least some questions
+        if not questions:
+            questions = [
+                "Explain your approach to problem-solving in software development.",
+                "How do you handle technical challenges in your projects?",
+                "What's your experience with version control systems?"
+            ]
+        
+        # Format response
         return jsonify({
             'success': True,
             'questions': questions[:3]  # Return top 3 questions
         })
         
     except Exception as e:
-        print(f"Error getting interview questions: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error getting interview questions: {str(e)}")
+        # Return fallback questions instead of error
+        return jsonify({
+            'success': True,
+            'questions': [
+                "Tell me about your technical background.",
+                "What programming languages are you most comfortable with?",
+                "Describe a challenging project you've worked on."
+            ]
+        })
 
 @app.errorhandler(400)
 def bad_request(e):
@@ -709,41 +740,32 @@ def create_google_meet(interview_id):
     # Create a room URL for our second server
     return f"http://localhost:5001/meet/{interview_id}"
 
-# Add this function to generate interview questions
-def get_interview_questions(role, level='intermediate'):
-    questions_by_role = {
-        'frontend': [
-            "Explain the difference between let, const, and var in JavaScript.",
-            "What is the virtual DOM in React?",
-            "How does CSS specificity work?",
-            "Explain event bubbling in JavaScript.",
-            "What are closures in JavaScript?"
-        ],
-        'backend': [
-            "What is REST API?",
-            "Explain database indexing.",
-            "What is dependency injection?",
-            "How do you handle API security?",
-            "Explain the concept of caching."
-        ],
-        'fullstack': [
-            "Compare SQL and NoSQL databases.",
-            "Explain JWT authentication.",
-            "What is CORS?",
-            "Describe the MVC pattern.",
-            "How do you optimize website performance?"
-        ]
-    }
-    
-    return questions_by_role.get(role, ["General coding question 1", "General coding question 2"])
+def get_interview_questions(role='Software Engineer'):  # Default to first role
+    try:
+        # Load questions from questions.json
+        with open('frontend/assets/questions.json', 'r') as f:
+            questions_data = json.load(f)
+            
+        # Find the role in job_roles array
+        role_data = next((r for r in questions_data['job_roles'] if r['role'] == role), None)
+        
+        if role_data and role_data['questions']:
+            return role_data['questions']
+        else:
+            # If role not found, return first role's questions as default
+            default_role = questions_data['job_roles'][0]  # Software Engineer
+            return default_role['questions']
+            
+    except Exception as e:
+        logger.error(f"Error loading questions: {str(e)}")
+        return ["Error loading questions. Please try again."]
 
-# Add socket event for getting next question
 @socketio.on('get_next_question')
 def handle_next_question(data):
     try:
         room_id = data['roomId']
         context = data.get('currentContext', '')
-        role = data.get('role', 'general')
+        role = data.get('role', 'Software Engineer')  # Default to first role
         
         # Use vector search to find relevant questions
         if vector_store and context:
@@ -760,18 +782,13 @@ def handle_next_question(data):
             questions_data = json.load(f)
         
         # Find role or use default
-        role_data = None
-        for r in questions_data['job_roles']:
-            if r['role'].lower() == role.lower():
-                role_data = r
-                break
+        role_data = next((r for r in questions_data['job_roles'] if r['role'] == role), None)
         
         if not role_data:
-            # Use first role as default
+            # Use first role as default (Software Engineer)
             role_data = questions_data['job_roles'][0]
         
         # Get random question
-        import random
         question = random.choice(role_data['questions'])
         
         emit('ai_question', {
@@ -922,10 +939,10 @@ def handle_offer(data):
             logger.error("No room ID provided with offer")
             return
         
+        # Send offer to the other peer only
         emit('offer', {
-            'offer': data['offer'],
-            'from': request.sid
-        }, room=room_id)
+            'offer': data['offer']
+        }, room=room_id, include_self=False)
         logger.info(f"Offer relayed in room {room_id}")
     
     except Exception as e:
@@ -939,10 +956,10 @@ def handle_answer(data):
             logger.error("No room ID provided with answer")
             return
         
+        # Send answer to the other peer only
         emit('answer', {
-            'answer': data['answer'],
-            'from': request.sid
-        }, room=room_id)
+            'answer': data['answer']
+        }, room=room_id, include_self=False)
         logger.info(f"Answer relayed in room {room_id}")
     
     except Exception as e:
@@ -956,14 +973,14 @@ def handle_ice_candidate(data):
             logger.error("No room ID provided with ICE candidate")
             return
         
+        # Send ICE candidate to the other peer only
         emit('ice_candidate', {
-            'candidate': data['candidate'],
-            'from': request.sid
-        }, room=room_id)
+            'candidate': data['candidate']
+        }, room=room_id, include_self=False)
         logger.info(f"ICE candidate relayed in room {room_id}")
     
     except Exception as e:
-        logger.error(f"Error handling ice candidate: {str(e)}")
+        logger.error(f"Error handling ICE candidate: {str(e)}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -1032,20 +1049,124 @@ def start_interview_expiration_thread():
     thread = Thread(target=check_and_update_interviews, daemon=True)
     thread.start()
 
-# Initialize AI components
-try:
-    llm = init_gemini()
-    assessment_chain = create_assessment_chain(llm)
-    question_chain = create_question_chain(llm)
-    vector_store = init_vector_store()
-    logger.info("AI components initialized successfully")
-except Exception as e:
-    logger.error(f"Error initializing AI components: {str(e)}")
-    # Set fallback values
-    llm = None
-    assessment_chain = None
-    question_chain = None
-    vector_store = None
+# Initialize AI components with better error handling and global variables
+llm = None
+assessment_chain = None
+question_chain = None
+vector_store = None
+
+def initialize_ai_components():
+    global llm, assessment_chain, question_chain, vector_store
+    try:
+        print("Initializing AI components...")
+        # Clear existing components
+        llm = None
+        assessment_chain = None
+        question_chain = None
+        vector_store = None
+        
+        # Initialize new components
+        llm = genai.GenerativeModel('gemini-1.5-pro-latest')
+        if llm is None:
+            raise ValueError("Failed to initialize Gemini model")
+        
+        # Test LLM immediately
+        test_response = llm.generate_content("test")
+        if not test_response:
+            raise ValueError("LLM test failed immediately after initialization")
+        
+        # Initialize chains
+        assessment_chain = create_assessment_chain(llm)
+        if not assessment_chain:
+            raise ValueError("Failed to create assessment chain")
+            
+        question_chain = create_question_chain(llm)
+        if not question_chain:
+            raise ValueError("Failed to create question chain")
+            
+        vector_store = init_vector_store()
+        
+        print("AI components initialized successfully")
+        return True
+    except Exception as e:
+        print(f"Error initializing AI components: {str(e)}")
+        logger.error(f"AI initialization error: {str(e)}")
+        llm = None
+        assessment_chain = None
+        question_chain = None
+        vector_store = None
+        return False
+
+def check_and_restart_ai_components():
+    """Check AI components and restart if needed"""
+    global llm, assessment_chain, question_chain, vector_store
+    try:
+        # Check if components are initialized
+        if not all([llm, assessment_chain, question_chain]):
+            logger.warning("AI components not initialized, attempting to initialize...")
+            return initialize_ai_components()
+            
+        # Test LLM
+        try:
+            test_response = llm.invoke("test")
+            if not test_response:
+                raise ValueError("LLM test failed")
+        except Exception as e:
+            logger.error(f"LLM test failed, reinitializing: {str(e)}")
+            return initialize_ai_components()
+            
+        return True
+    except Exception as e:
+        logger.error(f"Error in AI components check: {str(e)}")
+        return initialize_ai_components()
+
+@app.route('/ai-status', methods=['GET'])
+def ai_status():
+    """Check the status of AI services"""
+    try:
+        # Make a test call to the Gemini API
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+        headers = {"Content-Type": "application/json"}
+        params = {"key": "AIzaSyBFdcHnWKVwWMtTqpKDDeamilyxHg69YeQ"}
+        data = {
+            "contents": [{"parts": [{"text": "test"}]}]
+        }
+        
+        response = requests.post(url, headers=headers, params=params, json=data)
+        
+        if response.status_code == 200:
+            ai_services = {
+                'status': 'ready',
+                'message': 'AI services are operational',
+                'last_check': datetime.now(timezone.utc).isoformat()
+            }
+            return jsonify({
+                'success': True,
+                'ai_services': ai_services
+            })
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Unknown error')
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'ai_services': {
+                    'status': 'error',
+                    'message': f'API Error: {error_msg}',
+                    'last_check': datetime.now(timezone.utc).isoformat()
+                }
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error checking AI status: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'ai_services': {
+                'status': 'error',
+                'message': f'Service Error: {str(e)}',
+                'last_check': datetime.now(timezone.utc).isoformat()
+            }
+        }), 500
 
 def periodic_ai_health_check():
     """Periodically check and restart AI components if needed"""
@@ -1069,127 +1190,79 @@ def start_ai_health_check_thread():
 # Update the main block
 if __name__ == '__main__':
     try:
-        # Start the interview expiration thread
-        start_interview_expiration_thread()
+        # Initialize AI components first
+        if not initialize_ai_components():
+            logger.warning("Failed to initialize AI components on startup")
         
         # Start the AI health check thread
         start_ai_health_check_thread()
         
-        # Register cleanup
-        @atexit.register
-        def cleanup():
-            try:
-                logger.info("Ollama server stopped")
-            except Exception as e:
-                logger.error(f"Error stopping Ollama: {str(e)}")
+        # Use port 5000 by default
+        port = int(os.getenv('PORT', 5000))
+        host = os.getenv('HOST', '0.0.0.0')
         
-        # Get port from environment
-        port = int(os.environ.get('PORT', 5001))
-        logger.info(f"Starting server on port {port}")
-        
-        # Run the server
+        logger.info(f"Starting server on {host}:{port}")
         socketio.run(
             app,
-            host='0.0.0.0',
+            host=host,
             port=port,
             debug=True,
-            use_reloader=False  # Disable reloader to avoid duplicate processes
+            use_reloader=False,
+            allow_unsafe_werkzeug=True
         )
+            
     except Exception as e:
         logger.error(f"Error starting server: {str(e)}")
-        raise
-
-@app.route('/ai-status', methods=['GET'])
-@login_required
-def ai_status():
-    """Check the status of AI services"""
-    try:
-        ai_services = {
-            'llm': llm is not None,
-            'assessment_chain': assessment_chain is not None,
-            'question_chain': question_chain is not None
-        }
-        
-        # Try a simple test if the LLM is available
-        if llm is not None:
-            try:
-                test_response = llm.invoke("test")
-                ai_services['llm_responsive'] = True
-            except Exception as e:
-                logger.error(f"LLM test failed: {str(e)}")
-                ai_services['llm_responsive'] = False
-                ai_services['llm_error'] = str(e)
-        
-        return jsonify({
-            'success': True,
-            'ai_services': ai_services
-        })
-    except Exception as e:
-        logger.error(f"Error checking AI status: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
-
-def check_and_restart_ai_components():
-    """Check if AI components are working and try to reinitialize them if not"""
-    global llm, assessment_chain, question_chain, vector_store
-    
-    try:
-        # Check if LLM is responsive
-        if llm is not None:
-            try:
-                test_response = llm.invoke("test")
-                logger.info("LLM is responsive")
-                return True
-            except Exception as e:
-                logger.error(f"LLM test failed: {str(e)}")
-        
-        # If we get here, we need to reinitialize
-        logger.info("Attempting to reinitialize AI components")
-        llm = init_gemini()
-        
-        if llm is not None:
-            assessment_chain = create_assessment_chain(llm)
-            question_chain = create_question_chain(llm)
-            
-            # Reinitialize vector store if needed
-            if vector_store is None:
-                vector_store = init_vector_store()
-                
-            logger.info("AI components reinitialized successfully")
-            return True
-        else:
-            logger.error("Failed to reinitialize LLM")
-            return False
-            
-    except Exception as e:
-        logger.error(f"Error checking/restarting AI components: {str(e)}")
-        return False
+        if 'ollama_process' in globals():
+            logger.info("Ollama server stopped")
 
 @app.route('/reinitialize-ai', methods=['POST'])
 @login_required
 def reinitialize_ai():
     """Manually reinitialize AI components"""
     try:
-        success = check_and_restart_ai_components()
+        # Test the API with a simple request
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+        headers = {"Content-Type": "application/json"}
+        params = {"key": "AIzaSyBFdcHnWKVwWMtTqpKDDeamilyxHg69YeQ"}
+        data = {
+            "contents": [{"parts": [{"text": "test"}]}]
+        }
         
-        if success:
+        response = requests.post(url, headers=headers, params=params, json=data)
+        
+        if response.status_code == 200:
             return jsonify({
                 'success': True,
-                'message': "AI components reinitialized successfully"
+                'message': "AI services reinitialized successfully",
+                'ai_services': {
+                    'status': 'ready',
+                    'message': 'AI services are operational',
+                    'last_check': datetime.now(timezone.utc).isoformat()
+                }
             })
         else:
+            error_msg = response.json().get('error', {}).get('message', 'Unknown error')
             return jsonify({
                 'success': False,
-                'message': "Failed to reinitialize AI components"
+                'message': f"Failed to reinitialize AI services: {error_msg}",
+                'ai_services': {
+                    'status': 'error',
+                    'message': f'API Error: {error_msg}',
+                    'last_check': datetime.now(timezone.utc).isoformat()
+                }
             }), 500
             
     except Exception as e:
         logger.error(f"Error in reinitialize-ai endpoint: {str(e)}")
         return jsonify({
             'success': False,
-            'message': f"Error: {str(e)}"
+            'message': f"Error: {str(e)}",
+            'ai_services': {
+                'status': 'error',
+                'message': f'Service Error: {str(e)}',
+                'last_check': datetime.now(timezone.utc).isoformat()
+            }
         }), 500
 
 @app.route('/api/ai-status', methods=['GET'])

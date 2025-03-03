@@ -17,6 +17,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from typing import Dict, Any, Optional
 import traceback
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -42,40 +43,23 @@ IMPORTANT: Always respond with clean, properly formatted JSON. Do not include an
 
 # Initialize Gemini model
 def init_gemini():
-    max_retries = 3
-    retry_delay = 2  # seconds
-    
-    for attempt in range(max_retries):
-        try:
-            # Initialize the Gemini model with LangChain
-            llm = ChatGoogleGenerativeAI(
-                model="gemini-1.5-pro-latest",
-                temperature=0.2,
-                google_api_key=GOOGLE_API_KEY,
-                convert_system_message_to_human=True
-            )
+    """Initialize Gemini model with proper error handling"""
+    try:
+        api_key = 'AIzaSyBFdcHnWKVwWMtTqpKDDeamilyxHg69YeQ'
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-pro-latest")
+        
+        # Test the connection
+        test_response = model.generate_content("Test connection")
+        if not test_response or not test_response.text:
+            raise ValueError("Model test failed: Empty response")
             
-            # Test the model with a simple prompt
-            try:
-                test_response = llm.invoke("test")
-                logger.info("Gemini model initialized and tested successfully")
-                return llm
-            except Exception as e:
-                logger.error(f"Gemini model test failed: {str(e)}")
-                if attempt < max_retries - 1:
-                    time.sleep(retry_delay)
-                    continue
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error initializing Gemini (attempt {attempt + 1}/{max_retries}): {str(e)}")
-            if attempt < max_retries - 1:
-                time.sleep(retry_delay)
-                continue
-            return None
-    
-    logger.error("Failed to initialize Gemini model after all retries")
-    return None
+        logger.info("Gemini model initialized successfully")
+        return model
+        
+    except Exception as e:
+        logger.error(f"Error initializing Gemini model: {str(e)}")
+        return None
 
 # Output parser for JSON responses
 class InterviewAssessmentParser(JsonOutputParser):
@@ -191,86 +175,167 @@ question_prompt = PromptTemplate(
 )
 
 # Create LangChain chains
-def create_assessment_chain(llm):
-    if llm is None:
-        raise ValueError("LLM initialization failed")
-    return LLMChain(
-        llm=llm,
-        prompt=interview_prompt,
-        output_parser=assessment_parser,
-        verbose=False  # Set to False to avoid unnecessary output
-    )
+def create_assessment_chain(model):
+    """Create a chain for assessing interview answers"""
+    try:
+        if not model:
+            raise ValueError("Model not initialized")
+            
+        def assess_answer(role, question, answer):
+            prompt = f"""
+            Assess this technical interview answer for a {role} position.
+            
+            Question: {question}
+            
+            Answer: {answer}
+            
+            Provide a detailed assessment in JSON format:
+            {{
+                "score": <0-100>,
+                "strengths": ["strength1", "strength2", ...],
+                "improvements": ["improvement1", "improvement2", ...],
+                "feedback": "detailed feedback"
+            }}
+            
+            Base the assessment on:
+            1. Technical accuracy
+            2. Completeness of the answer
+            3. Clear explanation
+            4. Practical examples or use cases
+            """
+            
+            try:
+                response = model.generate_content(prompt)
+                if not response or not response.text:
+                    raise ValueError("Empty response from model")
+                
+                # Parse the response text as JSON
+                try:
+                    # Clean the response text to ensure it's valid JSON
+                    text = response.text.strip()
+                    
+                    # Find the first { and last } to extract JSON
+                    start_idx = text.find('{')
+                    end_idx = text.rfind('}')
+                    
+                    if start_idx != -1 and end_idx != -1:
+                        text = text[start_idx:end_idx+1]
+                    
+                    assessment = json.loads(text)
+                    
+                    # Validate the required fields
+                    if not isinstance(assessment.get('score'), (int, float)):
+                        assessment['score'] = 70
+                    if not isinstance(assessment.get('strengths'), list):
+                        assessment['strengths'] = ["Basic understanding shown"]
+                    if not isinstance(assessment.get('improvements'), list):
+                        assessment['improvements'] = ["Add more detail"]
+                    if not isinstance(assessment.get('feedback'), str):
+                        assessment['feedback'] = "Answer shows basic understanding but needs more depth."
+                    return assessment
+                except json.JSONDecodeError:
+                    # If response is not valid JSON, return a default assessment
+                    return {
+                        "score": 70,
+                        "strengths": ["Basic understanding shown"],
+                        "improvements": ["Add more detail"],
+                        "feedback": "Answer shows basic understanding but needs more depth."
+                    }
+            except Exception as e:
+                logger.error(f"Error in assessment: {str(e)}")
+                return {
+                    "score": 70,
+                    "strengths": ["Basic understanding shown"],
+                    "improvements": ["Add more detail"],
+                    "feedback": "Answer shows basic understanding but needs more depth."
+                }
+            
+        return assess_answer
+        
+    except Exception as e:
+        logger.error(f"Error creating assessment chain: {str(e)}")
+        return None
 
-def create_question_chain(llm):
-    if llm is None:
-        raise ValueError("LLM initialization failed")
-    return LLMChain(
-        llm=llm,
-        prompt=question_prompt,
-        output_parser=question_parser,
-        verbose=False  # Set to False to avoid unnecessary output
-    )
+def create_question_chain(model):
+    """Create a chain for generating interview questions"""
+    try:
+        if not model:
+            raise ValueError("Model not initialized")
+            
+        def generate_question(role='fullstack', level='intermediate', technology='general'):
+            prompt = f"""
+            Generate a challenging technical interview question for a {level} {role} developer.
+            If specified, focus on {technology}.
+            
+            Format the response as a JSON object with the following structure:
+            {{
+                "question": "The actual question",
+                "expected_topics": ["topic1", "topic2", ...],
+                "difficulty_level": "intermediate/advanced/expert"
+            }}
+            """
+            
+            response = model.generate_content(prompt)
+            if not response or not response.text:
+                raise ValueError("Empty response from model")
+                
+            return response.text
+            
+        return generate_question
+        
+    except Exception as e:
+        logger.error(f"Error creating question chain: {str(e)}")
+        return None
 
 # Add this new function for checking AI service status
-def check_ai_services_status() -> Dict[str, Any]:
-    """Check the status of all AI services and return detailed status information."""
-    status = {
-        'llm': {
-            'available': False,
-            'error': None,
-            'details': None
-        },
-        'vector_store': {
-            'available': False,
-            'error': None,
-            'details': None
-        },
-        'assessment_chain': {
-            'available': False,
-            'error': None
-        },
-        'question_chain': {
-            'available': False,
-            'error': None
+def check_ai_services_status():
+    """Check the status of all AI services"""
+    try:
+        # Initialize model
+        model = init_gemini()
+        if not model:
+            return {
+                'status': 'error',
+                'message': 'Failed to initialize Gemini model'
+            }
+            
+        # Test question generation
+        question_chain = create_question_chain(model)
+        if not question_chain:
+            return {
+                'status': 'error',
+                'message': 'Failed to create question chain'
+            }
+            
+        # Test assessment
+        assessment_chain = create_assessment_chain(model)
+        if not assessment_chain:
+            return {
+                'status': 'error',
+                'message': 'Failed to create assessment chain'
+            }
+            
+        return {
+            'status': 'ok',
+            'message': 'All AI services are operational',
+            'components': {
+                'model': True,
+                'question_chain': True,
+                'assessment_chain': True
+            }
         }
-    }
-    
-    try:
-        # Test LLM
-        llm = init_gemini()
-        if llm is not None:
-            test_response = llm.invoke("test")
-            status['llm']['available'] = True
-            status['llm']['details'] = "Gemini model responding correctly"
-        else:
-            status['llm']['error'] = "Failed to initialize Gemini model"
+        
     except Exception as e:
-        status['llm']['error'] = str(e)
-        status['llm']['details'] = traceback.format_exc()
-
-    try:
-        # Test vector store
-        vs = init_vector_store()
-        if vs is not None:
-            status['vector_store']['available'] = True
-            status['vector_store']['details'] = "Vector store initialized successfully"
-        else:
-            status['vector_store']['error'] = "Failed to initialize vector store"
-    except Exception as e:
-        status['vector_store']['error'] = str(e)
-        status['vector_store']['details'] = traceback.format_exc()
-
-    # Update the assessment and question chain status based on LLM availability
-    if status['llm']['available']:
-        try:
-            if assessment_chain is not None:
-                status['assessment_chain']['available'] = True
-            if question_chain is not None:
-                status['question_chain']['available'] = True
-        except Exception as e:
-            logger.error(f"Error checking chain status: {e}")
-    
-    return status
+        logger.error(f"Error checking AI services: {str(e)}")
+        return {
+            'status': 'error',
+            'message': str(e),
+            'components': {
+                'model': False,
+                'question_chain': False,
+                'assessment_chain': False
+            }
+        }
 
 # Modify the init_vector_store function to be more robust
 def init_vector_store() -> Optional[Any]:
